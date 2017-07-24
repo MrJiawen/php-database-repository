@@ -167,6 +167,9 @@ ABC
         // 3.6 写入 构造方法
         $this->productionStoreConstructMethod($databaseStoreTemplate, $databaseName, $databaseRepository);
 
+        // 3.7 写入 create 方法
+        $this->productionStoreCreateMethod($databaseStoreTemplate, $databaseName, $databaseRepository);
+
         // 3.11 写入文件
         file_put_contents($this->appPath . '/Store/Cache/' . $databaseCacheStoreName . '.php', $databaseStoreTemplate);
 
@@ -180,6 +183,12 @@ ABC
     }
 
 
+    /**
+     * 写入构造方法
+     * @param $databaseStoreTemplate
+     * @param $databaseName
+     * @param $databaseRepository
+     */
     protected function productionStoreConstructMethod(&$databaseStoreTemplate, $databaseName, $databaseRepository)
     {
         // 1. 构造方法 =》 添加命名空间
@@ -229,7 +238,46 @@ ABC;
     }
 ABC
 );
-       // dd($modelObjectStr);
+    }
+
+    protected function productionStoreCreateMethod(&$databaseStoreTemplate, $databaseName, $databaseRepository)
+    {
+        // 1. 构建写入数据
+        $resultString = '';
+        $createString = '';
+        foreach (array_merge([$databaseName], $databaseRepository['equality_repository'], $databaseRepository['child_repository']) as $item){
+            $databaseModelInfo = $this->databaseRepositoryConfig[$item]['database_model_info'];
+            $databaseFields = $this->databaseRepositoryConfig[$item]['database_fields'];
+            $createString .= tabConvertSpace(2) . '// create '.$databaseModelInfo['repository_name'] ." model data; \r\n";
+            $createString .= tabConvertSpace(2) . '$create'.$databaseModelInfo['model_object'].
+                ' = array_only($create, '.arrayToString($databaseFields).");\r\n";
+            $createString .= tabConvertSpace(2) . '$result'.$databaseModelInfo['model_object'].' = $this->'.
+                $databaseModelInfo['model_member_property'].'->create($create'.$databaseModelInfo['model_object'].");\r\n\r\n";
+
+            $resultString .= '$result'.$databaseModelInfo['model_object'] .' & ';
+        }
+        $resultString = trim($resultString, '& ');
+        // 写入模板
+        $this->addStoreCode($databaseStoreTemplate,<<<ABC
+    
+    /**
+     * create one record in this database repository
+     * @param \$create
+     * @return bool|int
+     */
+    public function create(\$create)
+    {
+        // 1. 字段过滤
+        if (!array_keys_exists(\$this->fields_not_null, \$create))
+            return false;
+            
+        // 2. 写入数据
+{$createString} 
+        return {$resultString};
+    }
+ABC
+        );
+
 
     }
 

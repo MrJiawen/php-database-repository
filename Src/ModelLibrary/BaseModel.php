@@ -40,7 +40,7 @@ abstract class BaseModel
      */
     public function create($create)
     {
-        DB::table($this->table)->insert($create);
+        return DB::table($this->table)->insert($create);
     }
 
     /**
