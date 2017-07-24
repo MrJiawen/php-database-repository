@@ -119,17 +119,118 @@ class TemplateProduction
         // 3.1 获取模板
         $databaseStoreTemplate = file_get_contents(__DIR__ . '/../Template/DatabaseCacheStore.php');
 
-
+        // 3.2 修改类名称
         $databaseStoreTemplate = str_replace('DatabaseCacheStore', $databaseCacheStoreName, $databaseStoreTemplate);
+
+        // 3.3 写入相应的repository name
+        $this->addStoreCode($databaseStoreTemplate, <<<ABC
+    /**
+     * 数据仓库名称
+     * @var string
+     */
+    public \$repository_name = "$databaseName";
+ABC
+        );
+        // 3.3 写入主键
+        $this->addStoreCode($databaseStoreTemplate, <<<ABC
+        
+    /**
+     * 数据仓库的主键
+     * @var string
+     */
+    public \$primary_key = "{$databaseRepository['primary_key']['field']}";
+ABC
+        );
+        // 3.4 写入 数据仓库的所有字段
+        $temporary = arrayToString(array_values($databaseRepository['contain']['database_fields']));
+        $this->addStoreCode($databaseStoreTemplate, <<<ABC
+    
+    /**
+     * 数据仓库所有字段
+     * @var array
+     */
+    public \$fields = {$temporary};
+ABC
+        );
+        // 3.5 写入 数据仓库必填字段
+        $temporary = arrayToString(array_values($databaseRepository['contain']['database_fields_not_null']));
+        $this->addStoreCode($databaseStoreTemplate, <<<ABC
+    
+    /**
+     * 数据仓库必填字段
+     * @var array
+     */
+    public \$fields_not_null = {$temporary};
+ABC
+        );
+
+        // 3.6 写入 构造方法
+        $this->productionStoreConstructMethod($databaseStoreTemplate, $databaseName, $databaseRepository);
 
         // 3.11 写入文件
         file_put_contents($this->appPath . '/Store/Cache/' . $databaseCacheStoreName . '.php', $databaseStoreTemplate);
 
+
+        dd($databaseRepository, $databaseStoreTemplate);
         // 4. 提示语
         $this->command->info('           ' . $notice . $this->appPath . '/Store/Cache/' . $databaseCacheStoreName . '.php' . ' 模型缓存文件');
 
 
-        dd($databaseRepository, $databaseName);
+        //  dd($databaseRepository, $databaseName);
+    }
+
+
+    protected function productionStoreConstructMethod(&$databaseStoreTemplate, $databaseName, $databaseRepository)
+    {
+        // 1. 构造方法 =》 添加命名空间
+        $contain = explode("/**", $databaseStoreTemplate);
+        $start = array_shift($contain);
+        $contain = "\r\n/**" . implode("/**", $contain);
+        foreach (array_merge([$databaseName], $databaseRepository['equality_repository'], $databaseRepository['child_repository']) as $item) {
+            $namespaceLoad = $this->databaseRepositoryConfig[$item]['database_model_info']['namespace_load'];
+            $contain = $namespaceLoad . ";\r\n" . $contain;
+        }
+        $databaseStoreTemplate = $start . $contain;
+
+        // 2 构造方法 =》 添加成员变量方法的成员变量
+        $modelMemberPropertyStr = '';
+        foreach (array_merge([$databaseName], $databaseRepository['equality_repository'], $databaseRepository['child_repository']) as $item) {
+            $modelMemberProperty = $this->databaseRepositoryConfig[$item]['database_model_info']['model_member_property'];
+            $modelMemberPropertyStr .= <<<ABC
+            
+            
+    /**
+     * model object
+     * @var
+     */
+    public \${$modelMemberProperty};
+ABC;
+ ;
+        }
+        $this->addStoreCode($databaseStoreTemplate,$modelMemberPropertyStr);
+
+        // 3 构造方法 =》 构建构造方法
+        $modelObjectStr = '';
+        foreach (array_merge([$databaseName], $databaseRepository['equality_repository'], $databaseRepository['child_repository']) as $item) {
+            $modelObject = $this->databaseRepositoryConfig[$item]['database_model_info']['model_object'];
+            $modelMemberProperty = $this->databaseRepositoryConfig[$item]['database_model_info']['model_member_property'];
+            $modelObjectStr .= tabConvertSpace(2).'$this->'.$modelMemberProperty .' = new '.$modelObject."();\r\n";
+        }
+        $modelObjectStr = trim($modelObjectStr,"\r\n");
+        $databaseCacheStoreName = convertUnderline($databaseName).'CacheStore';
+        $this->addStoreCode($databaseStoreTemplate,<<<ABC
+  
+    /**
+     * {$databaseCacheStoreName} constructor.
+     */  
+    public function __construct()
+    {
+{$modelObjectStr}     
+    }
+ABC
+);
+       // dd($modelObjectStr);
+
     }
 
     /**
@@ -139,6 +240,15 @@ class TemplateProduction
     {
         foreach ($this->databaseRepositoryConfig as $databaseName => $item) {
 
+            if ($item['repository_type'] != 'independent') {
+                continue;
+            }
+            // 1. 首先构建同级、子级、和关联模块的数据仓库
+            foreach (array_merge($item['equality_repository'], $item['child_repository']) as $childRepository) {
+                $this->productionOneModelCode($childRepository, $this->databaseRepositoryConfig[$childRepository]);
+            }
+
+            // 2. 然后构建自己（独立的 database_repository ）
             $this->productionOneModelCode($databaseName, $item);
         }
     }
@@ -178,7 +288,6 @@ class TemplateProduction
         $modelCountMethodTemplate = file_get_contents(__DIR__ . '/../Template/ModelCountMethod.php');
         $modelPageMethodTemplate = file_get_contents(__DIR__ . '/../Template/ModelPageMethod.php');
 
-
         // 3.2 更换文件名称
         $databaseModelTemplate = str_replace('DatabaseCacheModel', $databaseCacheModelName, $databaseModelTemplate);
 
@@ -187,10 +296,8 @@ class TemplateProduction
 
         // 3.4 填写主键
         $databaseModelTemplate = str_replace('primaryKeyName', $databaseRepository['primary_key']['field'], $databaseModelTemplate);
-
         // 3.5 通过主键查询一条数据
         $this->addModelMethodCode($databaseModelTemplate, $databaseRepository['primary_key']['field'], $modelFindMethodTemplate);
-
         // 3.6 获取所有的数据(在父类中)
 
         // 3.7 获取所有数据分页（在父类中）
@@ -227,7 +334,7 @@ class TemplateProduction
      */
     protected function addModelMethodCode(&$databaseModelTemplate, $field, $template)
     {
-        $field = is_array($field) ? convertUnderline(implode('_', $field)) : ucfirst($field);
+        $field = is_array($field) ? convertUnderline(implode('_', $field)) : convertUnderline($field);
 
         $template = str_replace('Field', $field, $template);
 
@@ -236,5 +343,19 @@ class TemplateProduction
         array_push($contain, $template, $end);
 
         $databaseModelTemplate = implode("\r\n", $contain);
+    }
+
+    /** 为 构建的 store  添加代码
+     * @param $databaseStoreTemplate
+     * @param $code
+     */
+    protected function addStoreCode(&$databaseStoreTemplate, $code)
+    {
+        $contain = explode("\r\n", $databaseStoreTemplate);
+
+        $end = array_pop($contain);
+        array_push($contain, $code, $end);
+
+        $databaseStoreTemplate = implode("\r\n", $contain);
     }
 }
