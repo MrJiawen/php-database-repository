@@ -133,7 +133,7 @@ ABC
         );
         // 3.3 写入主键
         $this->addStoreCode($databaseStoreTemplate, <<<ABC
-        
+
     /**
      * 数据仓库的主键
      * @var string
@@ -144,7 +144,7 @@ ABC
         // 3.4 写入 数据仓库的所有字段
         $temporary = arrayToString(array_values($databaseRepository['contain']['database_fields']));
         $this->addStoreCode($databaseStoreTemplate, <<<ABC
-    
+
     /**
      * 数据仓库所有字段
      * @var array
@@ -155,7 +155,7 @@ ABC
         // 3.5 写入 数据仓库必填字段
         $temporary = arrayToString(array_values($databaseRepository['contain']['database_fields_not_null']));
         $this->addStoreCode($databaseStoreTemplate, <<<ABC
-    
+
     /**
      * 数据仓库必填字段
      * @var array
@@ -169,6 +169,10 @@ ABC
 
         // 3.7 写入 create 方法
         $this->productionStoreCreateMethod($databaseStoreTemplate, $databaseName, $databaseRepository);
+
+        // 3.8 写入 update 方法
+        $this->productionStoreUpdateMethod($databaseStoreTemplate, $databaseName, $databaseRepository);
+
 
         // 3.11 写入文件
         file_put_contents($this->appPath . '/Store/Cache/' . $databaseCacheStoreName . '.php', $databaseStoreTemplate);
@@ -206,8 +210,8 @@ ABC
         foreach (array_merge([$databaseName], $databaseRepository['equality_repository'], $databaseRepository['child_repository']) as $item) {
             $modelMemberProperty = $this->databaseRepositoryConfig[$item]['database_model_info']['model_member_property'];
             $modelMemberPropertyStr .= <<<ABC
-            
-            
+
+
     /**
      * model object
      * @var
@@ -228,18 +232,24 @@ ABC;
         $modelObjectStr = trim($modelObjectStr,"\r\n");
         $databaseCacheStoreName = convertUnderline($databaseName).'CacheStore';
         $this->addStoreCode($databaseStoreTemplate,<<<ABC
-  
+
     /**
      * {$databaseCacheStoreName} constructor.
-     */  
+     */
     public function __construct()
     {
-{$modelObjectStr}     
+{$modelObjectStr}
     }
 ABC
 );
     }
 
+    /**
+     * 写入 create 方法
+     * @param $databaseStoreTemplate
+     * @param $databaseName
+     * @param $databaseRepository
+     */
     protected function productionStoreCreateMethod(&$databaseStoreTemplate, $databaseName, $databaseRepository)
     {
         // 1. 构建写入数据
@@ -257,9 +267,9 @@ ABC
             $resultString .= '$result'.$databaseModelInfo['model_object'] .' & ';
         }
         $resultString = trim($resultString, '& ');
-        // 写入模板
+        // 2. 写入模板
         $this->addStoreCode($databaseStoreTemplate,<<<ABC
-    
+
     /**
      * create one record in this database repository
      * @param \$create
@@ -270,15 +280,53 @@ ABC
         // 1. 字段过滤
         if (!array_keys_exists(\$this->fields_not_null, \$create))
             return false;
-            
+
         // 2. 写入数据
-{$createString} 
+{$createString}
         return {$resultString};
     }
 ABC
         );
+    }
 
+    protected function productionStoreUpdateMethod(&$databaseStoreTemplate, $databaseName, $databaseRepository)
+    {
+        // 1. 构建写入的数据
+        $updateString = '';
+        foreach (array_merge([$databaseName], $databaseRepository['equality_repository'], $databaseRepository['child_repository']) as $item){
+            $databaseModelInfo = $this->databaseRepositoryConfig[$item]['database_model_info'];
+            $databaseFields = $this->databaseRepositoryConfig[$item]['database_fields'];
+            $updateString .= tabConvertSpace(2) . '// update '.$databaseModelInfo['repository_name'] ." model data;\r\n";
+            $updateString .= tabConvertSpace(2) . '$update'.$databaseModelInfo['model_object'].
+                ' = array_only($update, '.arrayToString($databaseFields).");\r\n";
+            $updateString .= tabConvertSpace(2) . 'if (!empty($update'.$databaseModelInfo['model_object'].")) {\r\n";
+            $updateString .= tabConvertSpace(3) . '$result'.$databaseModelInfo['model_object'].' = $this->'.
+                $databaseModelInfo['model_member_property'].'->update($where, $update'.$databaseModelInfo['model_object'].");\r\n";
+            $updateString .= tabConvertSpace(3) . 'if (empty($result'.$databaseModelInfo['model_object'].")) return false;\r\n";
+            $updateString .= tabConvertSpace(2) . "}\r\n\r\n";
+        }
 
+        // 2. 写入模板
+        $this->addStoreCode($databaseStoreTemplate,<<<ABC
+
+    /**
+     * update one record in this database repository
+     * @param \$where
+     * @param \$update
+     * @return bool
+     */
+    public function update(\$where, \$update)
+    {
+        // 1. 字段过滤
+        if (!array_keys_exists(\$this->primary_key, \$where))
+            return false;
+
+        // 2. 写入数据
+{$updateString}
+        return true;
+    }
+ABC
+        );
     }
 
     /**
