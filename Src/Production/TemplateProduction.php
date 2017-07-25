@@ -182,6 +182,9 @@ ABC
         // 3.11 写入 list  key 方法
         $this->productionStoreListKeyMethod($databaseStoreTemplate, $databaseName, $databaseRepository);
 
+        // 3.12 写入 list_page_key 方法
+        $this->productionStoreListPageKeyMethod($databaseStoreTemplate, $databaseName, $databaseRepository);
+
         // 3.11 写入文件
         file_put_contents($this->appPath . '/Store/Cache/' . $databaseCacheStoreName . '.php', $databaseStoreTemplate);
 
@@ -493,14 +496,15 @@ ABC
         if (!array_keys_exists({$filter}, \$where))
             return false;
 
-        // 2. 数据数据
+        // 2. 数据查询
 {$stringKeyString}
     }
 ABC
 );
 }
 
-    /** 写入 list  key 方法
+    /**
+     * 写入 list  key 方法
      * @param $databaseStoreTemplate
      * @param $databaseName
      * @param $databaseRepository
@@ -557,12 +561,89 @@ ABC
         if (!array_keys_exists({$filter}, \$where))
             return false;
 
-        // 2. 数据数据
+        // 2. 查询数据
 {$listKeyString}
     }
 ABC
         );
+    }
 
+    protected function productionStoreListPageKeyMethod(&$databaseStoreTemplate, $databaseName, $databaseRepository)
+    {
+        // 1. 写入代码
+        foreach (array_merge([$databaseName], $databaseRepository['equality_repository'], $databaseRepository['child_repository']) as $item_database){
+            foreach ($this->databaseRepositoryConfig[$item_database]['list_page_key'] as $item_list_index_info)
+                $this->createStoreListPageKeyMethod($databaseStoreTemplate, $item_database, $item_list_index_info, $databaseName);
+        }
+    }
+
+    protected function createStoreListPageKeyMethod(&$databaseStoreTemplate,$databaseName,$listPageIndexInfo, $fatherDatabaseName)
+    {
+
+        // 1. 构建数据
+        $databaseModelInfo = $this->databaseRepositoryConfig[$databaseName]['database_model_info'];
+        $fatherDatabaseModelInfo = $this->databaseRepositoryConfig[$fatherDatabaseName]['database_model_info'];
+        // 1.1 构建 count 方法
+        $listPageCountString = '';
+        $listPageCountString .= '$this->'.$databaseModelInfo['model_member_property'].'->countOf'.
+            convertUnderline(is_array($listPageIndexInfo['field']) ? implode('_', $listPageIndexInfo['field']) : $listPageIndexInfo['field']).'($where);';
+
+        // 1.2 构建 page 方法
+        $listPageKeyString = '';
+        $listPageKeyString .= tabConvertSpace(2) . '$result = $this->'.$databaseModelInfo['model_member_property'].'->pageOf'.
+            convertUnderline( is_array($listPageIndexInfo['field']) ? implode('_', $listPageIndexInfo['field']) : $listPageIndexInfo['field' ]).
+            "(\$where, \$offset, \$pageNum, ['".$this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."']);\r\n";
+        $listPageKeyString .= tabConvertSpace(2) . "if (empty(\$result)) return false;\r\n\r\n";
+
+        $listPageKeyString .= tabConvertSpace(2) . "foreach (\$result as \$key => \$items)\r\n";
+        $listPageKeyString .= tabConvertSpace(3) . '$result[$key] = $this->findBy'.
+            convertUnderline( $this->databaseRepositoryConfig[$fatherDatabaseName]['primary_key']['field']).
+            '([\''.$this->databaseRepositoryConfig[$databaseName]['primary_key']['field'].'\' => $result->'.
+            $this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."]);\r\n\r\n";
+        $listPageKeyString .= tabConvertSpace(2) . "return \$result;";
+
+
+        // 2. 写入代码
+        $methodName =  convertUnderline(is_array($listPageIndexInfo['field']) ? implode('_', $listPageIndexInfo['field']) : $listPageIndexInfo['field']);
+
+        $filter = arrayToString(array_values(is_array($listPageIndexInfo['field']) ? $listPageIndexInfo['field'] : [$listPageIndexInfo['field']]));
+
+
+        $this->addStoreCode($databaseStoreTemplate, <<<ABC
+
+    /**
+     * get total of {$filter} in this database repository
+     * @param \$where
+     * @return bool|mixed
+     */
+    public function countOf{$methodName}(\$where)
+    {
+        // 1. 字段过滤
+        if (!array_keys_exists({$filter}, \$where))
+            return false;
+
+        // 2.数据查询
+        return {$listPageCountString}
+    }
+
+    /**
+     * get records of one page by {$filter} in this database repository
+     * @param \$where
+     * @param \$offset
+     * @param \$pageNum
+     * @return bool|mixed
+     */
+    public function pageOf{$methodName}(\$where, \$offset, \$pageNum)
+    {
+        // 1. 字段过滤
+        if (!array_keys_exists({$filter}, \$where))
+            return false;
+
+        // 2. 数据查询
+{$listPageKeyString}
+    }
+ABC
+        );
     }
 
     /**
