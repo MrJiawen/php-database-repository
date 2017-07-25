@@ -176,6 +176,8 @@ ABC
         // 3.9 写入 findByPrimaryKey 方法
         $this->productionStorePrimaryKeyMethod($databaseStoreTemplate, $databaseName, $databaseRepository);
 
+        // 3.10 写入 string key 方法
+        //$this->productionStoreStringKeyMethod($databaseStoreTemplate, $databaseName, $databaseRepository);
 
         // 3.11 写入文件
         file_put_contents($this->appPath . '/Store/Cache/' . $databaseCacheStoreName . '.php', $databaseStoreTemplate);
@@ -258,17 +260,42 @@ ABC
         // 1. 构建写入数据
         $resultString = '';
         $createString = '';
-        foreach (array_merge([$databaseName], $databaseRepository['equality_repository'], $databaseRepository['child_repository']) as $item){
+
+        // 1.1 写入代码 （ 非 child 类型的 database repository）
+        foreach (array_merge([$databaseName], $databaseRepository['equality_repository']) as $item){
             $databaseModelInfo = $this->databaseRepositoryConfig[$item]['database_model_info'];
             $databaseFields = $this->databaseRepositoryConfig[$item]['database_fields'];
             $createString .= tabConvertSpace(2) . '// create '.$databaseModelInfo['repository_name'] ." model data; \r\n";
             $createString .= tabConvertSpace(2) . '$create'.$databaseModelInfo['model_object'].
                 ' = array_only($create, '.arrayToString($databaseFields).");\r\n";
+
             $createString .= tabConvertSpace(2) . '$result'.$databaseModelInfo['model_object'].' = $this->'.
                 $databaseModelInfo['model_member_property'].'->create($create'.$databaseModelInfo['model_object'].");\r\n\r\n";
 
             $resultString .= '$result'.$databaseModelInfo['model_object'] .' & ';
         }
+
+        // 1.2 写入代码 （child 类型的 database repository）
+        foreach ($databaseRepository['child_repository'] as $item){
+            $databaseModelInfo = $this->databaseRepositoryConfig[$item]['database_model_info'];
+            $databaseFields = $this->databaseRepositoryConfig[$item]['database_fields'];
+
+            $createString .= tabConvertSpace(2) . '// create '.$databaseModelInfo['repository_name'] ." model data; \r\n";
+            $createString .=  tabConvertSpace(2).'$result'.$databaseModelInfo['model_object']." = true;\r\n";
+            $createString .= tabConvertSpace(2) . 'if ($result'.
+                convertUnderline($this->databaseRepositoryConfig[$databaseName]['database_model_info']['model_object']).
+                '->repository_type == \''.$item."') {\r\n";
+
+            $createString .= tabConvertSpace(3) . '$create'.$databaseModelInfo['model_object'].
+                ' = array_only($create, '.arrayToString($databaseFields).");\r\n";
+            $createString .= tabConvertSpace(3) . '$result'.$databaseModelInfo['model_object'].' = $this->'.
+                $databaseModelInfo['model_member_property'].'->create($create'.$databaseModelInfo['model_object'].");\r\n";
+
+            $createString .= tabConvertSpace(2) . "}\r\n";
+            $resultString .= '$result'.$databaseModelInfo['model_object'] .' & ';
+        }
+
+
         $resultString = trim($resultString, '& ');
         // 2. 写入模板
         $this->addStoreCode($databaseStoreTemplate,<<<ABC
@@ -343,6 +370,8 @@ ABC
         // 1. 构建写入的数据
         $primaryKeyString = '';
         $resultString = '';
+
+        // 1.1 写入代码 （非 child 类型的 database repository）
         foreach (array_merge([$databaseName], $databaseRepository['equality_repository']) as $item){
             $databaseModelInfo = $this->databaseRepositoryConfig[$item]['database_model_info'];
             $databaseFields = $this->databaseRepositoryConfig[$item]['database_fields'];
@@ -356,6 +385,7 @@ ABC
             $resultString .= ' $result'.$databaseModelInfo['model_object'] . ',';
         }
 
+        // 1.2 写入代码 （child 类型的 database repository）
         foreach ($databaseRepository['child_repository'] as $item){
             $databaseModelInfo = $this->databaseRepositoryConfig[$item]['database_model_info'];
             $databaseFields = $this->databaseRepositoryConfig[$item]['database_fields'];
