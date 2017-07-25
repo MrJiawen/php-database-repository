@@ -173,6 +173,9 @@ ABC
         // 3.8 写入 update 方法
         $this->productionStoreUpdateMethod($databaseStoreTemplate, $databaseName, $databaseRepository);
 
+        // 3.9 写入 findByPrimaryKey 方法
+        $this->productionStorePrimaryKeyMethod($databaseStoreTemplate, $databaseName, $databaseRepository);
+
 
         // 3.11 写入文件
         file_put_contents($this->appPath . '/Store/Cache/' . $databaseCacheStoreName . '.php', $databaseStoreTemplate);
@@ -289,6 +292,12 @@ ABC
         );
     }
 
+    /**
+     * 写入 update 方法
+     * @param $databaseStoreTemplate
+     * @param $databaseName
+     * @param $databaseRepository
+     */
     protected function productionStoreUpdateMethod(&$databaseStoreTemplate, $databaseName, $databaseRepository)
     {
         // 1. 构建写入的数据
@@ -328,6 +337,68 @@ ABC
 ABC
         );
     }
+
+    protected function productionStorePrimaryKeyMethod(&$databaseStoreTemplate, $databaseName, $databaseRepository)
+    {
+        // 1. 构建写入的数据
+        $primaryKeyString = '';
+        $resultString = '';
+        foreach (array_merge([$databaseName], $databaseRepository['equality_repository']) as $item){
+            $databaseModelInfo = $this->databaseRepositoryConfig[$item]['database_model_info'];
+            $databaseFields = $this->databaseRepositoryConfig[$item]['database_fields'];
+            $primaryKeyString .= tabConvertSpace(2) . '// find one record by primary_key in '.$databaseModelInfo['repository_name'] ." repository of not child repository_type;\r\n";
+            $primaryKeyString .= tabConvertSpace(2) . '$result'.$databaseModelInfo['model_object'].' = $this->'.
+                $databaseModelInfo['model_member_property']."->findBy".
+                convertUnderline( $this->databaseRepositoryConfig[$item]['primary_key']['field'])."(\$where);\r\n";
+
+            $primaryKeyString .= tabConvertSpace(2). 'if (empty($result'.$databaseModelInfo['model_object'].")) return false;\r\n\r\n";
+
+            $resultString .= ' $result'.$databaseModelInfo['model_object'] . ',';
+        }
+
+        foreach ($databaseRepository['child_repository'] as $item){
+            $databaseModelInfo = $this->databaseRepositoryConfig[$item]['database_model_info'];
+            $databaseFields = $this->databaseRepositoryConfig[$item]['database_fields'];
+            $primaryKeyString .= tabConvertSpace(2) . '// find one record by primary_key in '.$databaseModelInfo['repository_name'] ." repository of child repository_type;\r\n";
+            $primaryKeyString .=  tabConvertSpace(2).'$result'.$databaseModelInfo['model_object']." = [];\r\n";
+            $primaryKeyString .= tabConvertSpace(2) . 'if ($result'.
+                convertUnderline($this->databaseRepositoryConfig[$databaseName]['database_model_info']['model_object']).
+                '->repository_type == \''.$item."') {\r\n";
+
+            $primaryKeyString .= tabConvertSpace(3) . '$result'.$databaseModelInfo['model_object'].' = $this->'.
+                $databaseModelInfo['model_member_property']."->findBy".
+                convertUnderline( $this->databaseRepositoryConfig[$item]['primary_key']['field'])."(\$where);\r\n";
+
+            $primaryKeyString .= tabConvertSpace(3). 'if (empty($result'.$databaseModelInfo['model_object'].")) return false;\r\n";
+            $primaryKeyString .= tabConvertSpace(2) . "}\r\n";
+
+            $resultString .= ' $result'.$databaseModelInfo['model_object'] . ',';
+        }
+
+        // 2. 写入模板
+        $methodName = 'findBy'.convertUnderline($databaseRepository['primary_key']['field']);
+        $resultString = tabConvertSpace(2).'return object_merge('.trim($resultString,', ').');';
+        $this->addStoreCode($databaseStoreTemplate,<<<ABC
+
+    /**
+     * find one recode By primary key Of this database repository
+     * @param \$where
+     * @return array|bool|mixed
+     */
+    public function {$methodName}(\$where)
+    {
+        // 1. 字段过滤
+        if (!array_keys_exists(\$this->primary_key, \$where))
+            return false;
+
+        // 2. 数据数据
+{$primaryKeyString}
+{$resultString}
+    }
+ABC
+        );
+    }
+
 
     /**
      *  构建 model层 代码
