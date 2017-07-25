@@ -149,7 +149,10 @@ class Kernel
         ];
     }
 
-
+    /**
+     * 在构造store前 首先对索引进行检查
+     * @author chenjiawen
+     */
     public function configBeforeConstructStore()
     {
         // 为每个独立的database_repository 构造配置参数
@@ -163,6 +166,11 @@ class Kernel
         }
     }
 
+    /**
+     * 在构造store前 首先对索引进行检查
+     * @param $databaseName
+     * @param $databaseRepository
+     */
     public function configOneBeforeConstructStore($databaseName, $databaseRepository)
     {
         // 1. 为独立厂库 新建一个容器 contain

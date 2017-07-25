@@ -177,7 +177,10 @@ ABC
         $this->productionStorePrimaryKeyMethod($databaseStoreTemplate, $databaseName, $databaseRepository);
 
         // 3.10 写入 string key 方法
-        //$this->productionStoreStringKeyMethod($databaseStoreTemplate, $databaseName, $databaseRepository);
+        $this->productionStoreStringKeyMethod($databaseStoreTemplate, $databaseName, $databaseRepository);
+
+        // 3.11 写入 list  key 方法
+        $this->productionStoreListKeyMethod($databaseStoreTemplate, $databaseName, $databaseRepository);
 
         // 3.11 写入文件
         file_put_contents($this->appPath . '/Store/Cache/' . $databaseCacheStoreName . '.php', $databaseStoreTemplate);
@@ -365,6 +368,12 @@ ABC
         );
     }
 
+    /**
+     * 创建 primary key 方法
+     * @param $databaseStoreTemplate
+     * @param $databaseName
+     * @param $databaseRepository
+     */
     protected function productionStorePrimaryKeyMethod(&$databaseStoreTemplate, $databaseName, $databaseRepository)
     {
         // 1. 构建写入的数据
@@ -429,6 +438,132 @@ ABC
         );
     }
 
+    /**
+     * 写入 string key 方法
+     * @param $databaseStoreTemplate
+     * @param $databaseName
+     * @param $databaseRepository
+     */
+    protected function productionStoreStringKeyMethod(&$databaseStoreTemplate, $databaseName, $databaseRepository)
+    {
+        // 1. 写入代码
+        foreach (array_merge([$databaseName], $databaseRepository['equality_repository'], $databaseRepository['child_repository']) as $item_database){
+            foreach ($this->databaseRepositoryConfig[$item_database]['string_key'] as $item_string_index_info)
+                $this->createStoreStringKeyMethod($databaseStoreTemplate, $item_database, $item_string_index_info, $databaseName);
+        }
+    }
+
+    /**
+     * 写入 string key 方法 (辅助方法)
+     * @param $databaseStoreTemplate
+     * @param $databaseName
+     * @param $stringIndexInfo
+     * @param $fatherDatabaseName
+     */
+    protected  function createStoreStringKeyMethod(&$databaseStoreTemplate,$databaseName,$stringIndexInfo, $fatherDatabaseName)
+    {
+        // 1. 构建数据
+        $stringKeyString = '';
+        $databaseModelInfo = $this->databaseRepositoryConfig[$databaseName]['database_model_info'];
+        $fatherDatabaseModelInfo = $this->databaseRepositoryConfig[$fatherDatabaseName]['database_model_info'];
+        $stringKeyString .= tabConvertSpace(2) . '$result = $this->'.$databaseModelInfo['model_member_property'].'->findBy'.
+            convertUnderline(is_array($stringIndexInfo['field']) ? implode('_', $stringIndexInfo['field']) : $stringIndexInfo['field' ]).
+            "(\$where, ['".$this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."']);\r\n";
+        $stringKeyString .= tabConvertSpace(2) . "if (empty(\$result)) return false;\r\n\r\n";
+
+        $stringKeyString .= tabConvertSpace(2).'return $this->findBy'.
+            convertUnderline( $this->databaseRepositoryConfig[$fatherDatabaseName]['primary_key']['field']).
+            '([\''.$this->databaseRepositoryConfig[$databaseName]['primary_key']['field'].'\' => $result->'.
+            $this->databaseRepositoryConfig[$databaseName]['primary_key']['field'].']);';
+        // 2. 写入代码
+        $methodName = 'findBy' . convertUnderline(is_array($stringIndexInfo['field']) ? implode('_',$stringIndexInfo['field']) : $stringIndexInfo['field']);
+
+        $filter = arrayToString(array_values(is_array($stringIndexInfo['field']) ? $stringIndexInfo['field'] :[ $stringIndexInfo['field'] ]));
+
+        $this->addStoreCode($databaseStoreTemplate,<<<ABC
+
+    /**
+     * find one recode By {$filter} Of this database repository
+     * @param \$where
+     * @return array|bool|mixed
+     */
+    public function {$methodName}(\$where)
+    {
+        // 1. 字段过滤
+        if (!array_keys_exists({$filter}, \$where))
+            return false;
+
+        // 2. 数据数据
+{$stringKeyString}
+    }
+ABC
+);
+}
+
+    /** 写入 list  key 方法
+     * @param $databaseStoreTemplate
+     * @param $databaseName
+     * @param $databaseRepository
+     */
+    protected function productionStoreListKeyMethod(&$databaseStoreTemplate, $databaseName, $databaseRepository)
+    {
+        // 1. 写入代码
+        foreach (array_merge([$databaseName], $databaseRepository['equality_repository'], $databaseRepository['child_repository']) as $item_database){
+            foreach ($this->databaseRepositoryConfig[$item_database]['list_key'] as $item_list_index_info)
+                $this->createStoreListKeyMethod($databaseStoreTemplate, $item_database, $item_list_index_info, $databaseName);
+        }
+    }
+
+    /**
+     * 写入 list  key 方法(辅助方法)
+     * @param $databaseStoreTemplate
+     * @param $databaseName
+     * @param $listIndexInfo
+     * @param $fatherDatabaseName
+     */
+    protected  function createStoreListKeyMethod(&$databaseStoreTemplate,$databaseName,$listIndexInfo, $fatherDatabaseName)
+    {
+        // 1. 构建数据
+        $listKeyString = '';
+        $databaseModelInfo = $this->databaseRepositoryConfig[$databaseName]['database_model_info'];
+        $fatherDatabaseModelInfo = $this->databaseRepositoryConfig[$fatherDatabaseName]['database_model_info'];
+        $listKeyString .= tabConvertSpace(2) . '$result = $this->'.$databaseModelInfo['model_member_property'].'->getOf'.
+            convertUnderline( is_array($listIndexInfo['field']) ? implode('_', $listIndexInfo['field']) : $listIndexInfo['field' ]).
+            "(\$where, ['".$this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."']);\r\n";
+        $listKeyString .= tabConvertSpace(2) . "if (empty(\$result)) return false;\r\n\r\n";
+
+        $listKeyString .= tabConvertSpace(2) . "foreach (\$result as \$key => \$items)\r\n";
+        $listKeyString .= tabConvertSpace(3) . '$result[$key] = $this->findBy'.
+            convertUnderline( $this->databaseRepositoryConfig[$fatherDatabaseName]['primary_key']['field']).
+            '([\''.$this->databaseRepositoryConfig[$databaseName]['primary_key']['field'].'\' => $result->'.
+             $this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."]);\r\n\r\n";
+        $listKeyString .= tabConvertSpace(2) . "return \$result;";
+
+        // 2. 写入代码
+        $methodName = 'getOf' . convertUnderline(is_array($listIndexInfo['field']) ? implode('_', $listIndexInfo['field']) : $listIndexInfo['field']);
+
+        $filter = arrayToString(array_values(is_array($listIndexInfo['field']) ? $listIndexInfo['field'] : [$listIndexInfo['field']]));
+
+        $this->addStoreCode($databaseStoreTemplate, <<<ABC
+
+    /**
+     * get records of {$filter} in this database repository
+     * @param \$where
+     * @return bool|mixed
+     */
+    public function {$methodName}(\$where)
+    {
+        // 1. 字段过滤
+        if (!array_keys_exists({$filter}, \$where))
+            return false;
+
+        // 2. 数据数据
+{$listKeyString}
+    }
+ABC
+        );
+
+    }
 
     /**
      *  构建 model层 代码
