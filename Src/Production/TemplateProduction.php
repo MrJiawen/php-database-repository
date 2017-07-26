@@ -51,7 +51,8 @@ class TemplateProduction
         $this->productionStoreCode();
     }
 
-    /** 检查目录结构， 并且构建目录结构
+    /**
+     * 检查目录结构， 并且构建目录结构
      * @author chenjiawen
      */
     public function checkDirectory()
@@ -185,16 +186,13 @@ ABC
         // 3.12 写入 list_page_key 方法
         $this->productionStoreListPageKeyMethod($databaseStoreTemplate, $databaseName, $databaseRepository);
 
-        // 3.11 写入文件
+        // 3.13 写入文件
         file_put_contents($this->appPath . '/Store/Cache/' . $databaseCacheStoreName . '.php', $databaseStoreTemplate);
 
 
-        dd($databaseRepository, $databaseStoreTemplate);
         // 4. 提示语
         $this->command->info('           ' . $notice . $this->appPath . '/Store/Cache/' . $databaseCacheStoreName . '.php' . ' 模型缓存文件');
 
-
-        //  dd($databaseRepository, $databaseName);
     }
 
 
@@ -568,6 +566,12 @@ ABC
         );
     }
 
+    /**
+     * 写入 list_page_key 方法
+     * @param $databaseStoreTemplate
+     * @param $databaseName
+     * @param $databaseRepository
+     */
     protected function productionStoreListPageKeyMethod(&$databaseStoreTemplate, $databaseName, $databaseRepository)
     {
         // 1. 写入代码
@@ -577,6 +581,13 @@ ABC
         }
     }
 
+    /**
+     * 写入 list_page_key 方法(辅助方法)
+     * @param $databaseStoreTemplate
+     * @param $databaseName
+     * @param $listPageIndexInfo
+     * @param $fatherDatabaseName
+     */
     protected function createStoreListPageKeyMethod(&$databaseStoreTemplate,$databaseName,$listPageIndexInfo, $fatherDatabaseName)
     {
 

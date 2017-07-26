@@ -1,13 +1,13 @@
 <?php
 
-namespace CjwRepository\Src\ModelLibrary;
+namespace CjwRepository\Src\RepositoryLibrary;
 
 use Illuminate\Support\Facades\DB;
 
 /**
  * general model
  * Class BaseModel
- * @package CjwRepository\Src\ModelLibrary
+ * @package CjwRepository\Src\RepositoryLibrary
  */
 abstract class BaseModel
 {

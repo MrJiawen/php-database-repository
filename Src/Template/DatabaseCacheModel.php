@@ -2,7 +2,7 @@
 
 namespace App\Model\Cache;
 
-use CjwRepository\Src\ModelLibrary\BaseModel;
+use CjwRepository\Src\RepositoryLibrary\BaseModel;
 
 /**
  * Class DatabaseCacheModel
