@@ -129,7 +129,7 @@ class Kernel
 
         // 5. 构建分页列表索引
         $this->databaseRepositoryConfig[$databaseName]['list_page_key'] = [];
-        foreach ($repository['list_key'] as $key => $item) {
+        foreach ($repository['list_page_key'] as $key => $item) {
 
             // 按照数据的顺序排序
             $item = is_array($item) ? array_intersect($fields, $item) : $item;
