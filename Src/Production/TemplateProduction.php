@@ -312,7 +312,7 @@ ABC
     public function create(\$create)
     {
         // 1. 字段过滤
-        if (!array_keys_exists(\$this->fields_not_null, \$create))
+        if (!array_keys_exists([\$this->fields_not_null], \$create))
             return false;
 
         // 2. 写入数据
@@ -358,7 +358,7 @@ ABC
     public function update(\$where, \$update)
     {
         // 1. 字段过滤
-        if (!array_keys_exists(\$this->primary_key, \$where))
+        if (!array_keys_exists([\$this->primary_key], \$where))
             return false;
 
         // 2. 写入数据
@@ -428,7 +428,7 @@ ABC
     public function {$methodName}(\$where)
     {
         // 1. 字段过滤
-        if (!array_keys_exists(\$this->primary_key, \$where))
+        if (!array_keys_exists([\$this->primary_key], \$where))
             return false;
 
         // 2. 数据数据
