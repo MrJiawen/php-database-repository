@@ -428,7 +428,7 @@ ABC
     public function {$methodName}(\$where)
     {
         // 1. 字段过滤
-        if (!array_keys_exists(\$this->primary_key, \$where))
+        if (!array_keys_exists([\$this->primary_key], \$where))
             return false;
 
         // 2. 数据数据
