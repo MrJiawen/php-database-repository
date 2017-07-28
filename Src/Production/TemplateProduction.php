@@ -657,16 +657,25 @@ ABC
         $listKeyString = '';
         $databaseModelInfo = $this->databaseRepositoryConfig[$databaseName]['database_model_info'];
         $fatherDatabaseModelInfo = $this->databaseRepositoryConfig[$fatherDatabaseName]['database_model_info'];
-        $listKeyString .= tabConvertSpace(2) . '$result = $this->'.$databaseModelInfo['model_member_property'].'->getOf'.
+        $listKeyString .= tabConvertSpace(2) .
+            '$result = RepositoryCache::getListGet($where, $this->list_key, $this->list_key_driver, $callbackGet);'."\r\n";
+        $listKeyString .= tabConvertSpace(2) . "if (empty(\$result)) {\r\n";
+
+        $listKeyString .= tabConvertSpace(3) . "// 3.获取数据\r\n";
+        $listKeyString .= tabConvertSpace(3) . '$result = $this->'.$databaseModelInfo['model_member_property'].'->getOf'.
             convertUnderline( is_array($listIndexInfo['field']) ? implode('_', $listIndexInfo['field']) : $listIndexInfo['field' ]).
             "(\$where, ['".$this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."']);\r\n";
-        $listKeyString .= tabConvertSpace(2) . "if (empty(\$result)) return false;\r\n\r\n";
+        $listKeyString .= tabConvertSpace(3) . "if (empty(\$result)) return false;\r\n\r\n";
 
+        $listKeyString .= tabConvertSpace(3) . "// 4. 存入缓存\r\n";
+        $listKeyString .= tabConvertSpace(3) . "\$result = array_pluck(\$result, '".
+            $this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."');\r\n";
+        $listKeyString .= tabConvertSpace(3) . "RepositoryCache::getListSet(\$where, \$result, \$this->list_key, \$this->list_key_driver, \$this->list_key_expiration, \$callbackSet);\r\n";
+        $listKeyString .= tabConvertSpace(2) . "}\r\n\r\n";
         $listKeyString .= tabConvertSpace(2) . "foreach (\$result as \$key => \$item)\r\n";
         $listKeyString .= tabConvertSpace(3) . '$result[$key] = $this->findBy'.
             convertUnderline( $this->databaseRepositoryConfig[$fatherDatabaseName]['primary_key']['field']).
-            '([\''.$this->databaseRepositoryConfig[$databaseName]['primary_key']['field'].'\' => $item->'.
-             $this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."]);\r\n\r\n";
+            '([\''.$this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."' => \$item]);\r\n\r\n";
         $listKeyString .= tabConvertSpace(2) . "return \$result;";
 
         // 2. 写入代码
@@ -679,15 +688,17 @@ ABC
     /**
      * get records of {$filter} in this database repository
      * @param \$where
-     * @return bool|mixed
+     * @param null \$callbackGet
+     * @param null \$callbackSet
+     * @return array|bool|mixed
      */
-    public function {$methodName}(\$where)
+    public function {$methodName}(\$where, \$callbackGet = null, \$callbackSet = null)
     {
         // 1. 字段过滤
         if (!array_keys_exists({$filter}, \$where))
             return false;
 
-        // 2. 查询数据
+        // 2. 查询缓存
 {$listKeyString}
     }
 ABC

@@ -162,13 +162,14 @@ class RepositoryCache
     }
 
     /**
-     * 通过find 查询 list 类型索引 的 缓存内容
+     * 获取整个list
      * @param $index
+     * @param $listContain
      * @param $driver
      * @param $callback
      * @return bool
      */
-    public static function getList($index, $driver, $callback)
+    public static function getListGet($index, $listContain, $driver, $callback)
     {
         // 1. 获取驱动
         self::selectCacheDriver($driver);
@@ -176,14 +177,54 @@ class RepositoryCache
 
         if (empty($driver)) return false;
 
+        // 1.2 list 只能使用redis缓存
+        if ($driver != RedisCacheDriver::class) simpleError('list cache can only use RedisCacheDriver , please you modify configuration！！！', __FILE__, __LINE__);
+
         // 2. 判断回调函数是否存在
-        if (!empty($callback)) return $callback($index, $driver);
+        if (!empty($callback)) return $callback($index, $listContain, $driver);
 
         // 3. 判断是否存在对键
+        $indexStr = implode('_', array_keys($index));
+        $valueStr = implode(':', array_values($index));
+        $index = $listContain[$indexStr]['list_index'] . $valueStr;
+
         if (empty($driver::exists($index))) return false;
 
         // 4. 查询并且返回
         return $driver::getList($index);
+    }
+
+    /**
+     * 设置整个list （从前到后）
+     * @param $index
+     * @param $value
+     * @param $listContain
+     * @param $driver
+     * @param $expiration
+     * @param $callback
+     * @return bool
+     */
+    public static function getListSet($index, $value, $listContain, $driver, $expiration, $callback)
+    {
+        // 1. 获取驱动
+        self::selectCacheDriver($driver);
+        $driver = self::$driver;
+
+        if (empty($driver)) return false;
+
+        // 1.2 list 只能使用redis缓存
+        if ($driver != RedisCacheDriver::class) simpleError('list cache can only use RedisCacheDriver , please you modify configuration！！！', __FILE__, __LINE__);
+
+        // 2. 判断回调函数是否存在
+        if (!empty($callback)) return $callback($index, $value, $listContain, $driver, $expiration);
+
+        // 3. 构造 索引键
+        $indexStr = implode('_', array_keys($index));
+        $valueStr = implode(':', array_values($index));
+        $index = $listContain[$indexStr]['list_index'] . $valueStr;
+
+        // 4. 查询并且返回
+        return $driver::setListFromRight($index, $value, $expiration);
     }
 
 
