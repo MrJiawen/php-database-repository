@@ -43,9 +43,12 @@ return [
     'hash_key_driver' => '',
 
     // 过期时间单位设置(分钟)
-    'log_expiration' => '3',
-    'expiration' => '2',
-    'short_expiration' => '1',
+    'log_expiration' => '',
+    'expiration' => '',
+    'short_expiration' => '',
+
+    // 分页最大缓存数量
+    'list_page_max_num'=> '',
 
 
     // 数据仓库配置

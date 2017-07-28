@@ -22,8 +22,13 @@ class DatabaseStore extends Cache\DatabaseCacheStore
         /**
          *  set all index what it's expiration
          */
-        $this->string_key_expiration = config('database_repository.short_expiration');
-        $this->list_key_expiration = config('database_repository.short_expiration');
-        $this->hash_key_expiration = config('database_repository.short_expiration');
+        $this->string_key_expiration = empty(config('database_repository.short_expiration')) ?: 600;
+        $this->list_key_expiration = config('database_repository.short_expiration') ?: 600;
+        $this->hash_key_expiration = config('database_repository.short_expiration') ?: 600;
+
+        /**
+         *  set list page max num
+         */
+        $this->list_page_max_num = config('database_repository.list_page_max_num') ?: 2000;
     }
 }

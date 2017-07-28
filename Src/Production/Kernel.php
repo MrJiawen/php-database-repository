@@ -137,6 +137,7 @@ class Kernel
             $this->databaseRepositoryConfig[$databaseName]['list_page_key'][$key] = [
                 'field' => $item,
                 'list_page_index' => 'LIST:PAGE:' . strtoupper($fatherRepositoryName) . ':' . (is_array($item) ? strtoupper(implode(':', $item)) : strtoupper($item)) . ':',
+                'list_page_total_index' => 'LIST:PAGE:TOTAL:'. strtoupper($fatherRepositoryName) . ':' . (is_array($item) ? strtoupper(implode(':', $item)) : strtoupper($item)) . ':'
             ];
         }
 

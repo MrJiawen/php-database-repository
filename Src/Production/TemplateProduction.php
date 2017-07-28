@@ -249,6 +249,11 @@ ABC;
     public \$string_key_expiration;
     public \$list_key_expiration;
     public \$hash_key_expiration;
+    
+    /**
+     *  set list page max num
+     */
+    public \$list_page_max_num;
 ABC
         );
 
@@ -319,6 +324,7 @@ ABC
             $listPageIndexStr .= tabConvertSpace(3) . "'field' => ".
                 arrayToString(is_array($item['field']) ? array_values($item['field']) : $item['field']) .",\r\n";
             $listPageIndexStr .= tabConvertSpace(3) . "'list_page_index' => '".$item['list_page_index'] ."',\r\n";
+            $listPageIndexStr .= tabConvertSpace(3) . "'list_page_total_index' => '".$item['list_page_total_index'] ."',\r\n";
             $listPageIndexStr .= tabConvertSpace(3) . "'database_name' => '".$item['database_name'] ."'\r\n";
             $listPageIndexStr .= tabConvertSpace(2) . "],\r\n";
         }
