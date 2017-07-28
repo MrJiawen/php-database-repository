@@ -283,11 +283,13 @@ ABC
         foreach ($databaseRepository['child_repository'] as $item){
             $databaseModelInfo = $this->databaseRepositoryConfig[$item]['database_model_info'];
             $databaseFields = $this->databaseRepositoryConfig[$item]['database_fields'];
+            $databaseFieldsNotNull = $this->databaseRepositoryConfig[$item]['database_fields_not_null'];
 
             $createString .= tabConvertSpace(2) . '// create '.$databaseModelInfo['repository_name'] ." model data; \r\n";
             $createString .=  tabConvertSpace(2).'$result'.$databaseModelInfo['model_object']." = true;\r\n";
-            $createString .= tabConvertSpace(2) . 'if ($create[\'repository\'] == \''.$item."') {\r\n";
-
+            $createString .= tabConvertSpace(2) . 'if ($create[\'repository_type\'] == \''.$item."') {\r\n";
+            $createString .= tabConvertSpace(3) . 'if (!array_keys_exists('.arrayToString($databaseFieldsNotNull) .
+                ", \$create)) return false;\r\n";
             $createString .= tabConvertSpace(3) . '$create'.$databaseModelInfo['model_object'].
                 ' = array_only($create, '.arrayToString($databaseFields).");\r\n";
             $createString .= tabConvertSpace(3) . '$result'.$databaseModelInfo['model_object'].' = $this->'.
