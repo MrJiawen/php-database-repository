@@ -299,7 +299,6 @@ ABC
             $resultString .= '$result'.$databaseModelInfo['model_object'] .' & ';
         }
 
-
         $resultString = trim($resultString, '& ');
         // 2. 写入模板
         $this->addStoreCode($databaseStoreTemplate,<<<ABC
@@ -312,7 +311,7 @@ ABC
     public function create(\$create)
     {
         // 1. 字段过滤
-        if (!array_keys_exists([\$this->fields_not_null], \$create))
+        if (!array_keys_exists(\$this->fields_not_null, \$create))
             return false;
 
         // 2. 写入数据
@@ -534,10 +533,10 @@ ABC
             "(\$where, ['".$this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."']);\r\n";
         $listKeyString .= tabConvertSpace(2) . "if (empty(\$result)) return false;\r\n\r\n";
 
-        $listKeyString .= tabConvertSpace(2) . "foreach (\$result as \$key => \$items)\r\n";
+        $listKeyString .= tabConvertSpace(2) . "foreach (\$result as \$key => \$item)\r\n";
         $listKeyString .= tabConvertSpace(3) . '$result[$key] = $this->findBy'.
             convertUnderline( $this->databaseRepositoryConfig[$fatherDatabaseName]['primary_key']['field']).
-            '([\''.$this->databaseRepositoryConfig[$databaseName]['primary_key']['field'].'\' => $result->'.
+            '([\''.$this->databaseRepositoryConfig[$databaseName]['primary_key']['field'].'\' => $item->'.
              $this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."]);\r\n\r\n";
         $listKeyString .= tabConvertSpace(2) . "return \$result;";
 
@@ -606,10 +605,10 @@ ABC
             "(\$where, \$offset, \$pageNum, ['".$this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."']);\r\n";
         $listPageKeyString .= tabConvertSpace(2) . "if (empty(\$result)) return false;\r\n\r\n";
 
-        $listPageKeyString .= tabConvertSpace(2) . "foreach (\$result as \$key => \$items)\r\n";
+        $listPageKeyString .= tabConvertSpace(2) . "foreach (\$result as \$key => \$item)\r\n";
         $listPageKeyString .= tabConvertSpace(3) . '$result[$key] = $this->findBy'.
             convertUnderline( $this->databaseRepositoryConfig[$fatherDatabaseName]['primary_key']['field']).
-            '([\''.$this->databaseRepositoryConfig[$databaseName]['primary_key']['field'].'\' => $result->'.
+            '([\''.$this->databaseRepositoryConfig[$databaseName]['primary_key']['field'].'\' => $item->'.
             $this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."]);\r\n\r\n";
         $listPageKeyString .= tabConvertSpace(2) . "return \$result;";
 
