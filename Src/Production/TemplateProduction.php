@@ -386,13 +386,13 @@ ABC
         foreach ($databaseRepository['child_repository'] as $item){
             $databaseModelInfo = $this->databaseRepositoryConfig[$item]['database_model_info'];
             $databaseFields = $this->databaseRepositoryConfig[$item]['database_fields'];
+            $databaseFieldsNotNull = $this->databaseRepositoryConfig[$item]['database_fields_not_null'];
 
             $createString .= tabConvertSpace(2) . '// create '.$databaseModelInfo['repository_name'] ." model data; \r\n";
             $createString .=  tabConvertSpace(2).'$result'.$databaseModelInfo['model_object']." = true;\r\n";
-            $createString .= tabConvertSpace(2) . 'if ($result'.
-                convertUnderline($this->databaseRepositoryConfig[$databaseName]['database_model_info']['model_object']).
-                '->repository_type == \''.$item."') {\r\n";
-
+            $createString .= tabConvertSpace(2) . 'if ($create[\'repository_type\'] == \''.$item."') {\r\n";
+            $createString .= tabConvertSpace(3) . 'if (!array_keys_exists('.arrayToString($databaseFieldsNotNull) .
+                ", \$create)) return false;\r\n";
             $createString .= tabConvertSpace(3) . '$create'.$databaseModelInfo['model_object'].
                 ' = array_only($create, '.arrayToString($databaseFields).");\r\n";
             $createString .= tabConvertSpace(3) . '$result'.$databaseModelInfo['model_object'].' = $this->'.
@@ -401,7 +401,6 @@ ABC
             $createString .= tabConvertSpace(2) . "}\r\n";
             $resultString .= '$result'.$databaseModelInfo['model_object'] .' & ';
         }
-
 
         $resultString = trim($resultString, '& ');
         // 2. 写入模板
@@ -415,7 +414,7 @@ ABC
     public function create(\$create)
     {
         // 1. 字段过滤
-        if (!array_keys_exists([\$this->fields_not_null], \$create))
+        if (!array_keys_exists(\$this->fields_not_null, \$create))
             return false;
 
         // 2. 写入数据
@@ -637,10 +636,10 @@ ABC
             "(\$where, ['".$this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."']);\r\n";
         $listKeyString .= tabConvertSpace(2) . "if (empty(\$result)) return false;\r\n\r\n";
 
-        $listKeyString .= tabConvertSpace(2) . "foreach (\$result as \$key => \$items)\r\n";
+        $listKeyString .= tabConvertSpace(2) . "foreach (\$result as \$key => \$item)\r\n";
         $listKeyString .= tabConvertSpace(3) . '$result[$key] = $this->findBy'.
             convertUnderline( $this->databaseRepositoryConfig[$fatherDatabaseName]['primary_key']['field']).
-            '([\''.$this->databaseRepositoryConfig[$databaseName]['primary_key']['field'].'\' => $result->'.
+            '([\''.$this->databaseRepositoryConfig[$databaseName]['primary_key']['field'].'\' => $item->'.
              $this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."]);\r\n\r\n";
         $listKeyString .= tabConvertSpace(2) . "return \$result;";
 
@@ -709,10 +708,10 @@ ABC
             "(\$where, \$offset, \$pageNum, ['".$this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."']);\r\n";
         $listPageKeyString .= tabConvertSpace(2) . "if (empty(\$result)) return false;\r\n\r\n";
 
-        $listPageKeyString .= tabConvertSpace(2) . "foreach (\$result as \$key => \$items)\r\n";
+        $listPageKeyString .= tabConvertSpace(2) . "foreach (\$result as \$key => \$item)\r\n";
         $listPageKeyString .= tabConvertSpace(3) . '$result[$key] = $this->findBy'.
             convertUnderline( $this->databaseRepositoryConfig[$fatherDatabaseName]['primary_key']['field']).
-            '([\''.$this->databaseRepositoryConfig[$databaseName]['primary_key']['field'].'\' => $result->'.
+            '([\''.$this->databaseRepositoryConfig[$databaseName]['primary_key']['field'].'\' => $item->'.
             $this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."]);\r\n\r\n";
         $listPageKeyString .= tabConvertSpace(2) . "return \$result;";
 
