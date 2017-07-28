@@ -187,9 +187,12 @@ class Kernel
         // 3. 检查 string_key是否重复 并进行存储
         $contain['string_key'] = [];
         foreach (array_merge([$databaseName], $databaseRepository['equality_repository'], $databaseRepository['child_repository']) as $item) {
-            $contain['string_key'] = array_merge($contain['string_key'], $this->databaseRepositoryConfig[$item]['string_key']);
+            $item = array_map(function ($value) use ($item) {
+                $value['database_name'] = $item;
+                return $value;
+            }, $this->databaseRepositoryConfig[$item]['string_key']);
+            $contain['string_key'] = array_merge($contain['string_key'], $item);
         }
-
         $string_key = array_pluck($contain['string_key'], 'string_index');
         if (count($string_key) != count(array_unique($string_key))) {
             $this->command->error('在构建 store 的配置文件时，发现在' . $databaseName . '这个独立的 database_repository中，string_index 索引出现冲突，请检查原始配置文件！！！');
@@ -199,7 +202,11 @@ class Kernel
         // 4. 检查 list_key 是否重复 并进行存储
         $contain['list_key'] = [];
         foreach (array_merge([$databaseName], $databaseRepository['equality_repository'], $databaseRepository['child_repository']) as $item) {
-            $contain['list_key'] = array_merge($contain['list_key'], $this->databaseRepositoryConfig[$item]['list_key']);
+            $item = array_map(function ($value) use ($item) {
+                $value['database_name'] = $item;
+                return $value;
+            }, $this->databaseRepositoryConfig[$item]['list_key']);
+            $contain['list_key'] = array_merge($contain['list_key'], $item);
         }
 
         $list_key = array_pluck($contain['list_key'], 'list_index');
@@ -211,7 +218,11 @@ class Kernel
         // 5. 检查 list_page_key 是否重复 并进行存储
         $contain['list_page_key'] = [];
         foreach (array_merge([$databaseName], $databaseRepository['equality_repository'], $databaseRepository['child_repository']) as $item) {
-            $contain['list_page_key'] = array_merge($contain['list_page_key'], $this->databaseRepositoryConfig[$item]['list_page_key']);
+            $item = array_map(function ($value) use ($item) {
+                $value['database_name'] = $item;
+                return $value;
+            }, $this->databaseRepositoryConfig[$item]['list_page_key']);
+            $contain['list_page_key'] = array_merge($contain['list_page_key'], $item);
         }
 
         $list_page_key = array_pluck($contain['list_page_key'], 'list_page_index');

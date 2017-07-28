@@ -78,7 +78,7 @@ class RepositoryCache
      * @param $callback
      * @return bool
      */
-    public function findHashIndex($index, $driver, $callback)
+    public static function findHashIndex($index, $driver, $callback)
     {
         // 1. 获取驱动
         self::selectCacheDriver($driver);
@@ -103,7 +103,7 @@ class RepositoryCache
      * @param $callback
      * @return bool
      */
-    public function getList($index, $driver, $callback)
+    public static function getList($index, $driver, $callback)
     {
         // 1. 获取驱动
         self::selectCacheDriver($driver);
@@ -122,7 +122,7 @@ class RepositoryCache
     }
 
 
-    public function pageList($index, $offset, $pageNum, $driver, $callback)
+    public static function pageList($index, $offset, $pageNum, $driver, $callback)
     {
         // 1. 获取驱动
         self::selectCacheDriver($driver);

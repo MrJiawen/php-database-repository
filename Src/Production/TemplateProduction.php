@@ -231,7 +231,110 @@ ABC;
         }
         $this->addStoreCode($databaseStoreTemplate,$modelMemberPropertyStr);
 
-        // 3 构造方法 =》 构建构造方法
+        // 3. 添加缓存所需的配置信息
+        // 3.1 添加缓存驱动 和 缓存时间
+        $this->addStoreCode($databaseStoreTemplate, <<<ABC
+
+    /**
+     *  set all index what it's driver
+     */
+    public \$string_key_driver;
+    public \$list_key_driver;
+    public \$hash_key_driver;
+
+    /**
+     *  set all index what it's expiration
+     */
+    public \$string_key_expiration;
+    public \$list_key_expiration;
+    public \$hash_key_expiration;
+ABC
+        );
+        dump($this->databaseRepositoryConfig);
+        // 3.2 添加主键索引
+        $this->addStoreCode($databaseStoreTemplate, <<<ABC
+
+    /**
+     *  缓存中的 主键索引
+     */
+    public \$primary_key_index = ['field' => '{$databaseRepository['primary_key']['field']}', 'hash_index' => '{$databaseRepository['primary_key']['hash_index']}'];
+ABC
+        );
+
+        // 3.3. 添加 String 索引
+        $stringIndexStr = '';
+
+        foreach ($databaseRepository['contain']['string_key'] as $item){
+            $stringIndexStr .=  tabConvertSpace(2).'\''.(is_array($item['field']) ? implode('_',$item['field']) : $item['field']) .
+                "' => [\r\n" ;
+            $stringIndexStr .= tabConvertSpace(3) . "'field' => ".
+                arrayToString(is_array($item['field']) ? array_values($item['field']) : $item['field']) .",\r\n";
+            $stringIndexStr .= tabConvertSpace(3) . "'string_index' => '".$item['string_index'] ."',\r\n";
+            $stringIndexStr .= tabConvertSpace(3) . "'database_name' => '".$item['database_name'] ."'\r\n";
+                $stringIndexStr .= tabConvertSpace(2) . "],\r\n";
+        }
+        $stringIndexStr = trim($stringIndexStr,"\r\n,");
+        $this->addStoreCode($databaseStoreTemplate, <<<ABC
+
+    /**
+     *  缓存中的 string索引
+     */
+    public \$string_key = [
+{$stringIndexStr}
+    ];
+ABC
+        );
+
+        // 3.4 添加 list 索引
+        $listIndexStr = '';
+
+        foreach ($databaseRepository['contain']['list_key'] as $item){
+            $listIndexStr .=  tabConvertSpace(2).'\''.(is_array($item['field']) ? implode('_',$item['field']) : $item['field']) .
+                "' => [\r\n" ;
+            $listIndexStr .= tabConvertSpace(3) . "'field' => ".
+                arrayToString(is_array($item['field']) ? array_values($item['field']) : $item['field']) .",\r\n";
+            $listIndexStr .= tabConvertSpace(3) . "'list_index' => '".$item['list_index'] ."',\r\n";
+            $listIndexStr .= tabConvertSpace(3) . "'database_name' => '".$item['database_name'] ."'\r\n";
+            $listIndexStr .= tabConvertSpace(2) . "],\r\n";
+        }
+        $listIndexStr = trim($listIndexStr,"\r\n,");
+        $this->addStoreCode($databaseStoreTemplate, <<<ABC
+
+    /**
+     *  缓存中的 list索引
+     */
+    public \$list_key = [
+{$listIndexStr}
+    ];
+ABC
+        );
+
+        // 3.5 添加 list_page 索引
+        $listPageIndexStr = '';
+
+        foreach ($databaseRepository['contain']['list_page_key'] as $item){
+            $listPageIndexStr .=  tabConvertSpace(2).'\''.(is_array($item['field']) ? implode('_',$item['field']) : $item['field']) .
+                "' => [\r\n" ;
+            $listPageIndexStr .= tabConvertSpace(3) . "'field' => ".
+                arrayToString(is_array($item['field']) ? array_values($item['field']) : $item['field']) .",\r\n";
+            $listPageIndexStr .= tabConvertSpace(3) . "'list_page_index' => '".$item['list_page_index'] ."',\r\n";
+            $listPageIndexStr .= tabConvertSpace(3) . "'database_name' => '".$item['database_name'] ."'\r\n";
+            $listPageIndexStr .= tabConvertSpace(2) . "],\r\n";
+        }
+        $listPageIndexStr = trim($listPageIndexStr,"\r\n,");
+        $this->addStoreCode($databaseStoreTemplate, <<<ABC
+
+    /**
+     *  缓存中的 list_page 分页索引
+     */
+    public \$list_page_key = [
+{$listPageIndexStr}
+    ];
+ABC
+        );
+
+
+        // 4 构造方法 =》 构建构造方法
         $modelObjectStr = '';
         foreach (array_merge([$databaseName], $databaseRepository['equality_repository'], $databaseRepository['child_repository']) as $item) {
             $modelObject = $this->databaseRepositoryConfig[$item]['database_model_info']['model_object'];
