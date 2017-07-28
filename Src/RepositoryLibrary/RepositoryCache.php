@@ -46,13 +46,14 @@ class RepositoryCache
     }
 
     /**
-     *  通过find 查询 string 类型索引 的缓存内容
+     * 通过find 查询 string 类型索引 的缓存内容
      * @param $index
+     * @param $stringContain
      * @param $driver
      * @param $callback
      * @return bool
      */
-    public static function findStringGet($index, $driver, $callback)
+    public static function findStringGet($index, $stringContain, $driver, $callback)
     {
         // 1. 获取驱动
         self::selectCacheDriver($driver);
@@ -61,17 +62,47 @@ class RepositoryCache
         if (empty($driver)) return false;
 
         // 2. 判断回调函数是否存在
-        if (!empty($callback)) return $callback($index, $driver);
+        if (!empty($callback)) return $callback($index, $stringContain, $driver);
 
-        // 3. 判断是否存在对键
+        // 3. 判断是否存在索引键
+        $indexStr = implode('_', array_keys($index));
+        $valueStr = implode(':', array_values($index));
+        $index = $stringContain[$indexStr]['string_index'] . $valueStr;
+
         if (empty($driver::exists($index))) return false;
 
         // 4. 查询并且返回
         return $driver::getString($index);
     }
 
-    public static function findStringSet()
+    /**
+     * 设置 string 缓存
+     * @param $index
+     * @param $value
+     * @param $stringContain
+     * @param $driver
+     * @param $expiration
+     * @param $callback
+     * @return bool
+     */
+    public static function findStringSet($index, $value, $stringContain, $driver, $expiration, $callback)
     {
+        // 1. 获取驱动
+        self::selectCacheDriver($driver);
+        $driver = self::$driver;
+
+        if (empty($driver)) return false;
+
+        // 2. 判断回调函数是否存在
+        if (!empty($callback)) return $callback($index, $value, $stringContain, $driver, $expiration);
+
+        // 3. 构造 索引键
+        $indexStr = implode('_', array_keys($index));
+        $valueStr = implode(':', array_values($index));
+        $index = $stringContain[$indexStr]['string_index'] . $valueStr;
+
+        // 4. 查询并且返回
+        return $driver::setString($index, $value, $expiration);
     }
 
 
@@ -92,7 +123,7 @@ class RepositoryCache
         if (empty($driver)) return false;
 
         // 2. 判断回调函数是否存在
-        if (!empty($callback)) return $callback($index, $driver);
+        if (!empty($callback)) return $callback($index, $hashContain, $driver);
 
         // 3. 判断是否存在对键
         $index = $hashContain['hash_index'] . $index[$hashContain['field']];
@@ -121,14 +152,13 @@ class RepositoryCache
         if (empty($driver)) return false;
 
         // 2. 判断回调函数是否存在
-        if (!empty($callback)) return $callback($index, $driver);
+        if (!empty($callback)) return $callback($index, $value, $hashContain, $driver, $expiration);
 
-        // 3. 判断是否存在对键
+        // 3. 构造哈希键
         $index = $hashContain['hash_index'] . $index[$hashContain['field']];
-        if (empty($driver::exists($index))) return false;
 
         // 4. 查询并且返回
-        return $driver::setHash($index, $value, $expiration);
+        return $driver::setHash($index, toArray($value), $expiration);
     }
 
     /**

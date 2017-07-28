@@ -212,6 +212,7 @@ ABC
             $namespaceLoad = $this->databaseRepositoryConfig[$item]['database_model_info']['namespace_load'];
             $contain = $namespaceLoad . ";\r\n" . $contain;
         }
+        $contain = "use CjwRepository\Src\RepositoryLibrary\RepositoryCache;\r\n".$contain;
         $databaseStoreTemplate = $start . $contain;
 
         // 2 构造方法 =》 添加成员变量方法的成员变量
@@ -250,7 +251,7 @@ ABC;
     public \$hash_key_expiration;
 ABC
         );
-        dump($this->databaseRepositoryConfig);
+
         // 3.2 添加主键索引
         $this->addStoreCode($databaseStoreTemplate, <<<ABC
 
@@ -519,23 +520,34 @@ ABC
 
         // 2. 写入模板
         $methodName = 'findBy'.convertUnderline($databaseRepository['primary_key']['field']);
-        $resultString = tabConvertSpace(2).'return object_merge('.trim($resultString,', ').');';
+        $resultString = tabConvertSpace(2).'$result = object_merge('.trim($resultString,', ').');';
         $this->addStoreCode($databaseStoreTemplate,<<<ABC
 
     /**
      * find one recode By primary key Of this database repository
      * @param \$where
+     * @param null \$callbackGet
+     * @param null \$callbackSet
      * @return array|bool|mixed
      */
-    public function {$methodName}(\$where)
+    public function {$methodName}(\$where, \$callbackGet = null, \$callbackSet = null)
     {
         // 1. 字段过滤
         if (!array_keys_exists([\$this->primary_key], \$where))
             return false;
 
-        // 2. 数据数据
+        // 2. 查询缓存
+        \$resultCache = RepositoryCache::findHashGet(\$where, \$this->primary_key_index, \$this->hash_key_driver, \$callbackGet);
+        if (!empty(\$resultCache)) return toObject(\$resultCache);
+
+        // 3. 数据查询
 {$primaryKeyString}
 {$resultString}
+
+        // 4. 添加缓存 并 返回结果
+        RepositoryCache::findHashSet(\$where, \$result, \$this->primary_key_index, \$this->hash_key_driver, \$this->hash_key_expiration, \$callbackSet);
+
+        return \$result;
     }
 ABC
         );
@@ -569,9 +581,21 @@ ABC
         $stringKeyString = '';
         $databaseModelInfo = $this->databaseRepositoryConfig[$databaseName]['database_model_info'];
         $fatherDatabaseModelInfo = $this->databaseRepositoryConfig[$fatherDatabaseName]['database_model_info'];
+        $stringKeyString .= tabConvertSpace(2) .'$resultCache = RepositoryCache::findStringGet($where, $this->string_key, $this->string_key_driver, $callbackGet);'."\r\n";
+        $stringKeyString .= tabConvertSpace(2) . 'if (!empty($resultCache)) return $this->findBy'.
+            convertUnderline( $this->databaseRepositoryConfig[$fatherDatabaseName]['primary_key']['field']).
+            '([\''.$this->databaseRepositoryConfig[$databaseName]['primary_key']['field'].
+            "' => \$resultCache]);\r\n\r\n";
+
+        $stringKeyString .= tabConvertSpace(2) . "// 3.获取数据\r\n";
         $stringKeyString .= tabConvertSpace(2) . '$result = $this->'.$databaseModelInfo['model_member_property'].'->findBy'.
             convertUnderline(is_array($stringIndexInfo['field']) ? implode('_', $stringIndexInfo['field']) : $stringIndexInfo['field' ]).
-            "(\$where, ['".$this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."']);\r\n";
+            "(\$where, ['".$this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."']);\r\n\r\n";
+
+        $stringKeyString .= tabConvertSpace(2). "//4. 存入缓存\r\n";
+        $stringKeyString .= tabConvertSpace(2).'RepositoryCache::findStringSet($where, $result->'.
+            $this->databaseRepositoryConfig[$databaseName]['primary_key']['field'].
+            ', $this->string_key, $this->string_key_driver, $this->string_key_expiration, $callbackSet);'."\r\n\r\n";
         $stringKeyString .= tabConvertSpace(2) . "if (empty(\$result)) return false;\r\n\r\n";
 
         $stringKeyString .= tabConvertSpace(2).'return $this->findBy'.
@@ -588,15 +612,17 @@ ABC
     /**
      * find one recode By {$filter} Of this database repository
      * @param \$where
+     * @param null \$callbackGet
+     * @param null \$callbackSet
      * @return array|bool|mixed
      */
-    public function {$methodName}(\$where)
+    public function {$methodName}(\$where, \$callbackGet = null, \$callbackSet = null)
     {
         // 1. 字段过滤
         if (!array_keys_exists({$filter}, \$where))
             return false;
 
-        // 2. 数据查询
+        // 2. 查询缓存
 {$stringKeyString}
     }
 ABC
