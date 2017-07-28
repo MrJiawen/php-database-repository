@@ -286,9 +286,7 @@ ABC
 
             $createString .= tabConvertSpace(2) . '// create '.$databaseModelInfo['repository_name'] ." model data; \r\n";
             $createString .=  tabConvertSpace(2).'$result'.$databaseModelInfo['model_object']." = true;\r\n";
-            $createString .= tabConvertSpace(2) . 'if ($result'.
-                convertUnderline($this->databaseRepositoryConfig[$databaseName]['database_model_info']['model_object']).
-                '->repository_type == \''.$item."') {\r\n";
+            $createString .= tabConvertSpace(2) . 'if ($create[\'repository\'] == \''.$item."') {\r\n";
 
             $createString .= tabConvertSpace(3) . '$create'.$databaseModelInfo['model_object'].
                 ' = array_only($create, '.arrayToString($databaseFields).");\r\n";

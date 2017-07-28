@@ -179,7 +179,7 @@ class Kernel
         // 2. 归并字段
         $contain['database_fields'] = $databaseRepository['database_fields'];
         $contain['database_fields_not_null'] = $databaseRepository['database_fields_not_null'];
-        foreach (array_merge($databaseRepository['equality_repository'], $databaseRepository['child_repository']) as $item) {
+        foreach ($databaseRepository['equality_repository'] as $item) {
             $contain['database_fields'] = array_unique(array_merge($contain['database_fields'], $this->databaseRepositoryConfig[$item]['database_fields']));
             $contain['database_fields_not_null'] = array_unique(array_merge($contain['database_fields_not_null'], $this->databaseRepositoryConfig[$item]['database_fields_not_null']));
         }
