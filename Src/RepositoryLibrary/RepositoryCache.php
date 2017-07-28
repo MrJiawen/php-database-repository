@@ -52,7 +52,7 @@ class RepositoryCache
      * @param $callback
      * @return bool
      */
-    public static function findStringIndex($index, $driver, $callback)
+    public static function findStringGet($index, $driver, $callback)
     {
         // 1. 获取驱动
         self::selectCacheDriver($driver);
@@ -70,15 +70,20 @@ class RepositoryCache
         return $driver::getString($index);
     }
 
+    public static function findStringSet()
+    {
+    }
+
 
     /**
-     *  通过find 查询 hash 类型索引 的缓存内容
+     * 通过find 查询 hash 类型索引 的缓存内容
      * @param $index
+     * @param $hashContain
      * @param $driver
      * @param $callback
      * @return bool
      */
-    public static function findHashIndex($index, $driver, $callback)
+    public static function findHashGet($index, $hashContain, $driver, $callback)
     {
         // 1. 获取驱动
         self::selectCacheDriver($driver);
@@ -90,10 +95,40 @@ class RepositoryCache
         if (!empty($callback)) return $callback($index, $driver);
 
         // 3. 判断是否存在对键
+        $index = $hashContain['hash_index'] . $index[$hashContain['field']];
         if (empty($driver::exists($index))) return false;
 
         // 4. 查询并且返回
         return $driver::getHash($index);
+    }
+
+    /**
+     * 设置 hash 类型索引 的缓存内容
+     * @param $index
+     * @param $value
+     * @param $hashContain
+     * @param $driver
+     * @param $expiration
+     * @param $callback
+     * @return bool
+     */
+    public static function findHashSet($index, $value, $hashContain, $driver, $expiration, $callback)
+    {
+        // 1. 获取驱动
+        self::selectCacheDriver($driver);
+        $driver = self::$driver;
+
+        if (empty($driver)) return false;
+
+        // 2. 判断回调函数是否存在
+        if (!empty($callback)) return $callback($index, $driver);
+
+        // 3. 判断是否存在对键
+        $index = $hashContain['hash_index'] . $index[$hashContain['field']];
+        if (empty($driver::exists($index))) return false;
+
+        // 4. 查询并且返回
+        return $driver::setHash($index, $value, $expiration);
     }
 
     /**
