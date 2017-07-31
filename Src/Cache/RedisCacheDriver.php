@@ -131,6 +131,6 @@ class RedisCacheDriver implements InterfaceCache
      */
     public static function getListRange($key, $offset, $pageNum)
     {
-        return Redis::lrange($key, $offset, $offset + $pageNum);
+        return Redis::lrange($key, $offset, $offset + $pageNum - 1);
     }
 }

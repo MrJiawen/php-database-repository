@@ -249,7 +249,7 @@ ABC;
     public \$string_key_expiration;
     public \$list_key_expiration;
     public \$hash_key_expiration;
-    
+
     /**
      *  set list page max num
      */
@@ -745,18 +745,24 @@ ABC
             convertUnderline(is_array($listPageIndexInfo['field']) ? implode('_', $listPageIndexInfo['field']) : $listPageIndexInfo['field']).'($where);';
 
         // 1.2 构建 page 方法
-        $listPageKeyString = '';
-        $listPageKeyString .= tabConvertSpace(2) . '$result = $this->'.$databaseModelInfo['model_member_property'].'->pageOf'.
+        $listPageKeyString_1 = '';
+        $listPageKeyString_2 = '';
+        $listPageKeyString_3 = '';
+        $listPageKeyString_1 .= tabConvertSpace(3) . '$result = $this->'.$databaseModelInfo['model_member_property'].'->pageOf'.
+            convertUnderline( is_array($listPageIndexInfo['field']) ? implode('_', $listPageIndexInfo['field']) : $listPageIndexInfo['field' ]).
+            "(\$where, 0, \$this->list_page_max_num, ['".$this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."']);\r\n";
+        $listPageKeyString_1 .= tabConvertSpace(3) . "if (empty(\$result)) return false;\r\n";
+
+        $listPageKeyString_2 .= tabConvertSpace(3) . '$result = $this->'.$databaseModelInfo['model_member_property'].'->pageOf'.
             convertUnderline( is_array($listPageIndexInfo['field']) ? implode('_', $listPageIndexInfo['field']) : $listPageIndexInfo['field' ]).
             "(\$where, \$offset, \$pageNum, ['".$this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."']);\r\n";
-        $listPageKeyString .= tabConvertSpace(2) . "if (empty(\$result)) return false;\r\n\r\n";
+        $listPageKeyString_2 .= tabConvertSpace(3) . "if (empty(\$result)) return false;\r\n";
 
-        $listPageKeyString .= tabConvertSpace(2) . "foreach (\$result as \$key => \$item)\r\n";
-        $listPageKeyString .= tabConvertSpace(3) . '$result[$key] = $this->findBy'.
+        $listPageKeyString_3 .= tabConvertSpace(2) . "foreach (\$result as \$key => \$item)\r\n";
+        $listPageKeyString_3 .= tabConvertSpace(3) . '$result[$key] = $this->findBy'.
             convertUnderline( $this->databaseRepositoryConfig[$fatherDatabaseName]['primary_key']['field']).
-            '([\''.$this->databaseRepositoryConfig[$databaseName]['primary_key']['field'].'\' => $item->'.
-            $this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."]);\r\n\r\n";
-        $listPageKeyString .= tabConvertSpace(2) . "return \$result;";
+            '([\''.$this->databaseRepositoryConfig[$databaseName]['primary_key']['field']."' => \$item]);\r\n\r\n";
+        $listPageKeyString_3 .= tabConvertSpace(2) . "return \$result;";
 
 
         // 2. 写入代码
@@ -770,16 +776,27 @@ ABC
     /**
      * get total of {$filter} in this database repository
      * @param \$where
-     * @return bool|mixed
+     * @param null \$callbackGet
+     * @param null \$callbackSet
+     * @return bool|int|mixed
      */
-    public function countOf{$methodName}(\$where)
+    public function countOf{$methodName}(\$where, \$callbackGet = null, \$callbackSet = null)
     {
         // 1. 字段过滤
         if (!array_keys_exists({$filter}, \$where))
             return false;
 
-        // 2.数据查询
-        return {$listPageCountString}
+        // 2.查询缓存
+        \$resultCache = RepositoryCache::pageCountGet(\$where, \$this->list_page_key, \$this->list_key_driver, \$callbackGet);
+        if (!empty(\$resultCache)) return (int)\$resultCache;
+
+        // 3.数据查询
+        \$result = {$listPageCountString}
+
+        // 4. 存入缓存
+        RepositoryCache::pageCountSet(\$where, \$result, \$this->list_page_key, \$this->list_key_driver, \$this->list_key_expiration, \$callbackSet);
+
+        return \$result;
     }
 
     /**
@@ -789,14 +806,33 @@ ABC
      * @param \$pageNum
      * @return bool|mixed
      */
-    public function pageOf{$methodName}(\$where, \$offset, \$pageNum)
+    public function pageOf{$methodName}(\$where, \$offset, \$pageNum, \$callbackGet = null, \$callbackSet = null)
     {
         // 1. 字段过滤
         if (!array_keys_exists({$filter}, \$where))
             return false;
 
-        // 2. 数据查询
-{$listPageKeyString}
+        // 2. 查询缓存
+        \$result = RepositoryCache::pageListGet(\$where, \$offset, \$pageNum, \$this->list_page_max_num, \$this->list_page_key, \$this->list_key_driver, \$callbackGet);
+
+        if (empty(\$result) && \$offset + \$pageNum < \$this->list_page_max_num) {
+            // 3. 获取数据
+{$listPageKeyString_1}
+            // 4. 存入缓存
+            \$result = array_pluck(\$result, 'uuid');
+            RepositoryCache::pageListSet(\$where, \$result, \$this->list_page_key, \$this->list_key_driver, \$this->list_key_expiration, \$callbackSet);
+
+            // 5. 重新读取缓存
+            \$result = RepositoryCache::pageListGet(\$where, \$offset, \$pageNum, \$this->list_page_max_num, \$this->list_page_key, \$this->list_key_driver, \$callbackGet);
+
+        } else if (empty(\$result)) {
+
+            // 6. 超出缓存范围从数据库中查询
+{$listPageKeyString_2}
+            \$result = array_pluck(\$result, 'uuid');
+        }
+
+{$listPageKeyString_3}
     }
 ABC
         );

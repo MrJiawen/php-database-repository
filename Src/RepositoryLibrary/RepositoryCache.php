@@ -224,11 +224,18 @@ class RepositoryCache
         $index = $listContain[$indexStr]['list_index'] . $valueStr;
 
         // 4. 查询并且返回
-        return $driver::setListFromRight($index, $value, $expiration);
+        return $driver::setListFromLeft($index, $value, $expiration);
     }
 
-
-    public static function pageList($index, $offset, $pageNum, $driver, $callback)
+    /**
+     * 获取分页的总数
+     * @param $index
+     * @param $listPageContain
+     * @param $driver
+     * @param $callback
+     * @return bool
+     */
+    public static function pageCountGet($index, $listPageContain, $driver, $callback)
     {
         // 1. 获取驱动
         self::selectCacheDriver($driver);
@@ -237,12 +244,108 @@ class RepositoryCache
         if (empty($driver)) return false;
 
         // 2. 判断回调函数是否存在
-        if (!empty($callback)) return $callback($index, $offset, $pageNum, $driver);
+        if (!empty($callback)) return $callback($index, $listPageContain, $driver);
 
         // 3. 判断是否存在对键
+        $indexStr = implode('_', array_keys($index));
+        $valueStr = implode(':', array_values($index));
+        $index = $listPageContain[$indexStr]['list_page_total_index'] . $valueStr;
+
         if (empty($driver::exists($index))) return false;
 
         // 4. 查询并且返回
+        return $driver::getString($index);
+    }
+
+    /**
+     * 设置分页的总数
+     * @param $index
+     * @param $value
+     * @param $listPageContain
+     * @param $driver
+     * @param $expiration
+     * @param $callback
+     * @return bool
+     */
+    public static function pageCountSet($index, $value, $listPageContain, $driver, $expiration, $callback)
+    {
+        // 1. 获取驱动
+        self::selectCacheDriver($driver);
+        $driver = self::$driver;
+
+        if (empty($driver)) return false;
+
+        // 2. 判断回调函数是否存在
+        if (!empty($callback)) return $callback($index, $value, $listPageContain, $driver, $expiration);
+
+        // 3. 构造 索引键
+        $indexStr = implode('_', array_keys($index));
+        $valueStr = implode(':', array_values($index));
+        $index = $listPageContain[$indexStr]['list_page_total_index'] . $valueStr;
+
+        // 4. 查询并且返回
+        return $driver::setString($index, $value, $expiration);
+
+
+    }
+
+    public static function pageListGet($index, $offset, $pageNum, $pageMaxNum, $listPageContain, $driver, $callback)
+    {
+        // 1. 获取驱动
+        self::selectCacheDriver($driver);
+        $driver = self::$driver;
+
+        if (empty($driver)) return false;
+
+        // 1.2 list 只能使用redis缓存
+        if ($driver != RedisCacheDriver::class) simpleError('list cache can only use RedisCacheDriver , please you modify configuration！！！', __FILE__, __LINE__);
+
+        // 2. 判断回调函数是否存在
+        if (!empty($callback)) return $callback($index, $offset, $pageNum, $driver);
+
+        // 3. 查看偏移量是否超过设置的最大阈值
+        if ($offset + $pageNum > $pageMaxNum) return [];
+
+        // 4. 判断是否存在对键
+        $indexStr = implode('_', array_keys($index));
+        $valueStr = implode(':', array_values($index));
+        $index = $listPageContain[$indexStr]['list_page_index'] . $valueStr;
+
+        if (empty($driver::exists($index))) return false;
+
+        // 5. 查询并且返回
         return $driver::getListRange($index, $offset, $pageNum);
+    }
+
+    /**
+     * @param $index
+     * @param $value
+     * @param $listPageContain
+     * @param $driver
+     * @param $expiration
+     * @param $callback
+     * @return bool
+     */
+    public static function pageListSet($index, $value, $listPageContain, $driver, $expiration, $callback)
+    {
+        // 1. 获取驱动
+        self::selectCacheDriver($driver);
+        $driver = self::$driver;
+
+        if (empty($driver)) return false;
+
+        // 1.2 list 只能使用redis缓存
+        if ($driver != RedisCacheDriver::class) simpleError('list cache can only use RedisCacheDriver , please you modify configuration！！！', __FILE__, __LINE__);
+
+        // 2. 判断回调函数是否存在
+        if (!empty($callback)) return $callback($index, $value, $listPageContain, $driver, $expiration);
+
+        // 3. 构造 索引键
+        $indexStr = implode('_', array_keys($index));
+        $valueStr = implode(':', array_values($index));
+        $index = $listPageContain[$indexStr]['list_page_index'] . $valueStr;
+
+        // 4. 查询并且返回
+        return $driver::setListFromLeft($index, $value, $expiration);
     }
 }
