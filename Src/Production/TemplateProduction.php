@@ -471,7 +471,12 @@ ABC
             $updateString .= tabConvertSpace(2) . "}\r\n\r\n";
         }
 
+        $primaryMethodString = tabConvertSpace(2).'$data = $this->findBy'.
+            convertUnderline($databaseRepository['primary_key']['field']).'([\''.
+            $databaseRepository['primary_key']['field'].'\' => $where[\''.$databaseRepository['primary_key']['field'].
+            "']]);\r\n";
         // 2. 写入模板
+
         $this->addStoreCode($databaseStoreTemplate,<<<ABC
 
     /**
@@ -486,7 +491,25 @@ ABC
         if (!array_keys_exists([\$this->primary_key], \$where))
             return false;
 
-        // 2. 写入数据
+        // 2. 读取原有的旧数据
+{$primaryMethodString}
+        if (empty(\$data)) return false;
+        // 3. 对需要修改的字段进行缓存清理
+        \$resultCache = RepositoryCache::updateDealIndex(
+            \$update,
+            \$data,
+            \$this->primary_key,
+            \$this->primary_key_index,
+            \$this->string_key,
+            \$this->list_key,
+            \$this->list_page_key,
+            \$this->string_key_driver,
+            \$this->list_key_driver,
+            \$this->hash_key_driver
+        );
+        if (empty(\$resultCache)) return false;
+
+        // 4. 写入数据
 {$updateString}
         return true;
     }
@@ -751,7 +774,6 @@ ABC
      */
     protected function createStoreListPageKeyMethod(&$databaseStoreTemplate,$databaseName,$listPageIndexInfo, $fatherDatabaseName)
     {
-
         // 1. 构建数据
         $databaseModelInfo = $this->databaseRepositoryConfig[$databaseName]['database_model_info'];
         $fatherDatabaseModelInfo = $this->databaseRepositoryConfig[$fatherDatabaseName]['database_model_info'];
@@ -837,7 +859,7 @@ ABC
             // 3. 获取数据
 {$listPageKeyString_1}
             // 4. 存入缓存
-            \$result = array_pluck(\$result, 'uuid');
+            \$result = array_pluck(\$result, '{$this->databaseRepositoryConfig[$databaseName]['primary_key']['field']}');
             RepositoryCache::pageListSet(\$where, \$result, \$this->list_page_key, \$this->list_key_driver, \$this->list_key_expiration, \$callbackSet);
 
             // 5. 重新读取缓存
@@ -847,7 +869,7 @@ ABC
 
             // 6. 超出缓存范围从数据库中查询
 {$listPageKeyString_2}
-            \$result = array_pluck(\$result, 'uuid');
+            \$result = array_pluck(\$result, '{$this->databaseRepositoryConfig[$databaseName]['primary_key']['field']}');
         }
 
 {$listPageKeyString_3}

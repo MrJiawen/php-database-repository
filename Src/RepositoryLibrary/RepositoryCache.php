@@ -53,7 +53,7 @@ class RepositoryCache
         self::selectCacheDriver($driver);
         $driver = self::$driver;
 
-        if (empty($driver)) return false;
+        if (empty($driver)) return true;
 
         // 1.2 list 只能使用redis缓存
         if ($driver != RedisCacheDriver::class) simpleError('list cache can only use RedisCacheDriver , please you modify configuration！！！', __FILE__, __LINE__);
@@ -88,9 +88,9 @@ class RepositoryCache
             // 4.2.1 为count修改数值
             if (!empty($driver::exists($index_count))) {
 
-                $result = $driver::setString($index_count,$driver::getString($index_count) + 1,$expiration);
+                $result = $driver::setString($index_count, $driver::getString($index_count) + 1, $expiration);
 
-                if(empty($result)) return false;
+                if (empty($result)) return false;
             }
 
             // 4.3.1 为 list_page 看在开头压入数据
@@ -104,9 +104,115 @@ class RepositoryCache
         return true;
     }
 
-    public static function updateAllIndex($index, $driver, $callback)
+    /**
+     * 做数据修改时，需要对涉及到的缓存键删除
+     * @param $update
+     * @param $data
+     * @param $primary_key
+     * @param $primary_key_index
+     * @param $stringContain
+     * @param $listContain
+     * @param $listPageContain
+     * @param $string_key_driver
+     * @param $list_key_driver
+     * @param $hash_key_driver
+     * @return bool
+     */
+    public static function updateDealIndex(
+        $update,
+        $data,
+        $primary_key,
+        $primary_key_index,
+        $stringContain,
+        $listContain,
+        $listPageContain,
+        $string_key_driver,
+        $list_key_driver,
+        $hash_key_driver
+    )
     {
+        // 1. 首先对hash 缓存进行处理
+        // 1.1 获取驱动
+        self::selectCacheDriver($hash_key_driver);
+        $hash_key_driver = self::$driver;
+        if (!empty($hash_key_driver)) {
+            // 1.2 构建缓存键
+            $index = $primary_key_index['hash_index'] . $data->$primary_key;
 
+            // 1.3 如果存在 则清除
+            if ($hash_key_driver::exists($index)) {
+                $result = $hash_key_driver::delete($index);
+
+                if (empty($result)) return false;
+            }
+        }
+
+        // 2. 对string 缓存进行处理
+        self::selectCacheDriver($string_key_driver);
+        $string_key_driver = self::$driver;
+        foreach ($update as $key => $item) {
+            foreach ($stringContain as $contain) {
+                // 2.1 如果此字段存在于这个索引中，则进行处理
+                if (array_value_exists($key, $contain['field'])) {
+                    // 2.2 构建缓存键
+                    $param = array_only(toArray($data), $contain['field']);
+
+                    $valueStr = implode(':', array_values($param));
+                    $index = $contain['string_index'] . $valueStr;
+                    // 2.3 如果存在 则清除
+                    if ($string_key_driver::exists($index)) {
+                        $result = $string_key_driver::delete($index);
+
+                        if (empty($result)) return false;
+                    }
+                }
+            }
+        }
+
+        // 3. 对list 缓存进行处理
+        self::selectCacheDriver($list_key_driver);
+        $list_key_driver = self::$driver;
+
+        foreach ($update as $key => $item) {
+            foreach ($listContain as $contain) {
+                // 3.1 如果此字段存在于这个索引中，则进行处理
+                if (array_value_exists($key, $contain['field'])) {
+                    // 3.2 构建缓存键
+                    $param = array_only(toArray($data), $contain['field']);
+
+                    $valueStr = implode(':', array_values($param));
+                    $index = $contain['list_index'] . $valueStr;
+                    // 3.3 如果存在 则清除
+                    if ($string_key_driver::exists($index)) {
+                        $result = $list_key_driver::delete($index);
+
+                        if (empty($result)) return false;
+                    }
+                }
+            }
+        }
+
+        // 4. 对list_page 缓存进行处理
+        foreach ($update as $key => $item) {
+            foreach ($listPageContain as $contain) {
+                // 3.1 如果此字段存在于这个索引中，则进行处理
+                if (array_value_exists($key, $contain['field'])) {
+                    // 3.2 构建缓存键
+                    $param = array_only(toArray($data), $contain['field']);
+
+                    $valueStr = implode(':', array_values($param));
+                    $index = $contain['list_page_index'] . $valueStr;
+                    // 3.3 如果存在 则清除
+                    if ($string_key_driver::exists($index)) {
+                        $result = $list_key_driver::delete($index);
+
+                        if (empty($result)) return false;
+                    }
+                }
+            }
+        }
+
+        return true;
     }
 
     /**
