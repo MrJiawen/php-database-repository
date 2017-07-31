@@ -410,15 +410,22 @@ ABC
         }
 
         $resultString = trim($resultString, '& ');
+
+        $primaryMethodString = tabConvertSpace(2).'$result = $this->findBy'.
+            convertUnderline($databaseRepository['primary_key']['field']).'([\''.
+            $databaseRepository['primary_key']['field'].'\' => $create[\''.$databaseRepository['primary_key']['field'].
+            "']]);\r\n"
+        ;
         // 2. 写入模板
         $this->addStoreCode($databaseStoreTemplate,<<<ABC
 
     /**
      * create one record in this database repository
      * @param \$create
+     * @param \$callback
      * @return bool|int
      */
-    public function create(\$create)
+    public function create(\$create, \$callback = null)
     {
         // 1. 字段过滤
         if (!array_keys_exists(\$this->fields_not_null, \$create))
@@ -426,7 +433,16 @@ ABC
 
         // 2. 写入数据
 {$createString}
-        return {$resultString};
+        // 3. 结果进行判断
+        \$result = {$resultString};
+
+        if (empty(\$result)) return \$result;
+
+        // 4. 对缓存索引键进行处理  主要是处理list 和 list_page
+{$primaryMethodString}
+        \$resultCache = RepositoryCache::createDealIndex(\$this->primary_key, \$result, \$this->list_key, \$this->list_page_key, \$this->list_key_driver, \$this->list_key_expiration, \$callback);
+
+        return empty(\$resultCache) ? false : \$result;
     }
 ABC
         );
@@ -804,7 +820,9 @@ ABC
      * @param \$where
      * @param \$offset
      * @param \$pageNum
-     * @return bool|mixed
+     * @param null \$callbackGet
+     * @param null \$callbackSet
+     * @return array|bool|mixed
      */
     public function pageOf{$methodName}(\$where, \$offset, \$pageNum, \$callbackGet = null, \$callbackSet = null)
     {

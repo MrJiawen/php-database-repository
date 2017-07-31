@@ -35,9 +35,73 @@ class RepositoryCache
     }
 
 
-    public static function createAllIndex($index, $driver, $callback)
+    /**
+     * 处理 create 方法 对缓存的更新操作
+     *      notice： 只对redis 中的list 进行操作， 如果不存在都可以自动读取
+     * @param $primaryKey
+     * @param $data
+     * @param $listContain
+     * @param $listPageContain
+     * @param $driver
+     * @param $expiration
+     * @param $callback
+     * @return bool
+     */
+    public static function createDealIndex($primaryKey, $data, $listContain, $listPageContain, $driver, $expiration, $callback)
     {
+        // 1. 获取驱动
+        self::selectCacheDriver($driver);
+        $driver = self::$driver;
 
+        if (empty($driver)) return false;
+
+        // 1.2 list 只能使用redis缓存
+        if ($driver != RedisCacheDriver::class) simpleError('list cache can only use RedisCacheDriver , please you modify configuration！！！', __FILE__, __LINE__);
+
+        // 2. 判断回调函数是否存在
+        if (!empty($callback)) return $callback($data, $listContain, $listPageContain, $driver);
+
+        // 3. 为每个list 添加数据
+        foreach (array_merge($listContain) as $item) {
+            // 3.1 构建缓存键
+            $index = array_only(toArray($data), $item['field']);
+            $valueStr = implode(':', array_values($index));
+            $index = $item['list_index'] . $valueStr;
+
+            // 3.2 如果不存在则跳过
+            if (empty($driver::exists($index))) continue;
+
+            // 3.3 如果存在 则 压到头部
+            $result = $driver::setListFromLeft($index, $data->$primaryKey, $expiration);
+
+            if (empty($result)) return false;
+        }
+
+        // 4. 为每个list_page 添加数据
+        foreach (array_merge($listPageContain) as $item) {
+            // 4.1 构建缓存键
+            $index = array_only(toArray($data), $item['field']);
+            $valueStr = implode(':', array_values($index));
+            $index_count = $item['list_page_total_index'] . $valueStr;
+            $index_data = $item['list_page_index'] . $valueStr;
+
+            // 4.2.1 为count修改数值
+            if (!empty($driver::exists($index_count))) {
+
+                $result = $driver::setString($index_count,$driver::getString($index_count) + 1,$expiration);
+
+                if(empty($result)) return false;
+            }
+
+            // 4.3.1 为 list_page 看在开头压入数据
+            if (!empty($driver::exists($index_data))) {
+                $result = $driver::setListFromLeft($index_data, $data->$primaryKey, $expiration);
+
+                if (empty($result)) return false;
+            }
+        }
+
+        return true;
     }
 
     public static function updateAllIndex($index, $driver, $callback)
@@ -224,7 +288,7 @@ class RepositoryCache
         $index = $listContain[$indexStr]['list_index'] . $valueStr;
 
         // 4. 查询并且返回
-        return $driver::setListFromLeft($index, $value, $expiration);
+        return $driver::setListFromRight($index, $value, $expiration);
     }
 
     /**
@@ -289,6 +353,17 @@ class RepositoryCache
 
     }
 
+    /**
+     * 获取分页数据
+     * @param $index
+     * @param $offset
+     * @param $pageNum
+     * @param $pageMaxNum
+     * @param $listPageContain
+     * @param $driver
+     * @param $callback
+     * @return array|bool
+     */
     public static function pageListGet($index, $offset, $pageNum, $pageMaxNum, $listPageContain, $driver, $callback)
     {
         // 1. 获取驱动
@@ -318,6 +393,7 @@ class RepositoryCache
     }
 
     /**
+     * 设置分页数据
      * @param $index
      * @param $value
      * @param $listPageContain
@@ -346,6 +422,6 @@ class RepositoryCache
         $index = $listPageContain[$indexStr]['list_page_index'] . $valueStr;
 
         // 4. 查询并且返回
-        return $driver::setListFromLeft($index, $value, $expiration);
+        return $driver::setListFromRight($index, $value, $expiration);
     }
 }
